@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>URL Downloader</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            width: 300px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        button {
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            width: 100%;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        .error {
+            color: red;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Get Local Version</h2>
+        <input type="text" id="urlInput" placeholder="Enter URL" oninput="validateURL()">
+        <p id="errorText" class="error"></p>
+        <button id="downloadBtn" onclick="redirectToDownload()" disabled>Get Local Version</button>
+    </div>
+    <script>
+        function validateURL() {
+            const urlInput = document.getElementById('urlInput').value;
+            const errorText = document.getElementById('errorText');
+            const downloadBtn = document.getElementById('downloadBtn');
+            const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\/\w .-]*)*\/?$/;
+
+            if (!urlPattern.test(urlInput)) {
+                errorText.textContent = "Please enter a valid URL.";
+                downloadBtn.disabled = true;
+            } else {
+                errorText.textContent = "";
+                downloadBtn.disabled = false;
+            }
+        }
+
+        function redirectToDownload() {
+            const url = document.getElementById('urlInput').value;
+            window.location.href = `/api/download?url=${encodeURIComponent(url)}`;
+        }
+    </script>
+</body>
+
+</html>
