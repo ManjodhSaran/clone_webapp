@@ -45,6 +45,9 @@ export async function downloadWebpage(url) {
       'link[rel="shortcut icon"]': 'href'
     };
 
+    // Remove srcset attribute from all images to ensure offline availability
+    $('img').removeAttr('srcset');
+
     // Download assets
     for (const [selector, attr] of Object.entries(assetTypes)) {
       $(selector).each((_, element) => {
