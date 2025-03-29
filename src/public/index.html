@@ -179,15 +179,15 @@
             const urlInput = document.getElementById('urlInput');
             const errorText = document.getElementById('errorText');
             const downloadBtn = document.getElementById('downloadBtn');
-            const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\/\w .-]*)*\/?$/;
+            // const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\/\w .-]*)*\/?$/;
 
-            if (!urlPattern.test(urlInput.value)) {
-                errorText.textContent = "Please enter a valid URL.";
-                downloadBtn.disabled = true;
-            } else {
-                errorText.textContent = "";
-                downloadBtn.disabled = false;
-            }
+            // if (!urlPattern.test(urlInput.value)) {
+            //     errorText.textContent = "Please enter a valid URL.";
+            //     downloadBtn.disabled = true;
+            // } else {
+            //     errorText.textContent = "";
+            //     downloadBtn.disabled = false;
+            // }
         }
 
         function redirectToDownload() {
