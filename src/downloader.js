@@ -6,16 +6,14 @@ import crypto from 'crypto';
 import mime from 'mime-types';
 import sanitize from 'sanitize-filename';
 import AdmZip from 'adm-zip';
-import { mkdtemp } from 'fs/promises';
-import { tmpdir } from 'os';
 import { URL } from 'url';
 import pQueue from 'p-queue';
 
 // Configuration options
 const CONFIG = {
-  maxDepth: 2,                   // How many levels of links to follow
-  maxPagesPerDomain: 100,        // Maximum pages to download per domain
-  maxTotalPages: 500,            // Maximum total pages to download
+  maxDepth: 3,                   // How many levels of links to follow
+  maxPagesPerDomain: 10000,        // Maximum pages to download per domain
+  maxTotalPages: 50000,            // Maximum total pages to download
   maxConcurrent: 5,              // Maximum concurrent downloads
   excludeExtensions: ['.pdf', '.zip', '.rar', '.exe', '.dmg', '.iso'],
   timeout: 30000,                // 30 seconds timeout
@@ -30,7 +28,7 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
   // Ensure output directory exists
   await fs.mkdir(outputPath, { recursive: true });
 
-  // Create temporary directory with organized structure
+  // Create directory structure
   const pagesDir = path.join(outputPath, 'pages');
   const assetsDir = path.join(outputPath, 'assets');
   const cssDir = path.join(assetsDir, 'css');
@@ -38,6 +36,13 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
   const imgDir = path.join(assetsDir, 'img');
   const fontDir = path.join(assetsDir, 'fonts');
   const otherDir = path.join(assetsDir, 'other');
+
+  await fs.mkdir(pagesDir, { recursive: true });
+  await fs.mkdir(cssDir, { recursive: true });
+  await fs.mkdir(jsDir, { recursive: true });
+  await fs.mkdir(imgDir, { recursive: true });
+  await fs.mkdir(fontDir, { recursive: true });
+  await fs.mkdir(otherDir, { recursive: true });
 
   // Initialize tracking variables
   const processedUrls = new Map(); // url -> localPath
@@ -55,20 +60,16 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
   let duplicateAssets = 0;
 
   try {
-    // Create directory structure
-    await fs.mkdir(pagesDir, { recursive: true });
-    await fs.mkdir(cssDir, { recursive: true });
-    await fs.mkdir(jsDir, { recursive: true });
-    await fs.mkdir(imgDir, { recursive: true });
-    await fs.mkdir(fontDir, { recursive: true });
-    await fs.mkdir(otherDir, { recursive: true });
-
     // Parse starting URL
     const startUrlObj = new URL(startUrl);
     const baseDomain = startUrlObj.hostname;
 
-    // Create the base index.html path
-    const startUrlLocal = path.join(pagesDir, 'index.html');
+    // Create the base index.html path - updated to include domain name folder
+    const domainDir = path.join(pagesDir, sanitize(baseDomain));
+    await fs.mkdir(domainDir, { recursive: true });
+
+    // For the starting URL, place it in a domain-specific folder
+    const startUrlLocal = path.join(domainDir, 'index.html');
 
     // Add starting URL to queue
     pendingUrls.set(startUrl, { depth: 0, localPath: startUrlLocal });
@@ -125,15 +126,21 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
     // Create a sitemap HTML file
     await createSitemap(outputPath, processedUrls);
 
+    // Create a zip file of the entire output
+    const zipFilePath = path.join(path.dirname(outputPath), `${path.basename(outputPath)}.zip`);
+    await createZipArchive(outputPath, zipFilePath);
+
     console.log(`\nArchiving complete!`);
     console.log(`Total pages: ${totalPages}`);
     console.log(`Total unique assets: ${totalAssets - duplicateAssets}`);
     console.log(`Duplicate assets (saved): ${duplicateAssets}`);
     console.log(`Failed pages: ${failedPages}`);
     console.log(`Output saved to: ${outputPath}`);
+    console.log(`Zip archive created: ${zipFilePath}`);
 
     return {
       outputPath,
+      zipFilePath,
       stats: {
         totalPages,
         failedPages,
@@ -146,6 +153,19 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
   } catch (error) {
     console.error(`Failed to download website: ${error.message}`);
     throw error;
+  }
+
+  // Helper function to create a zip archive
+  async function createZipArchive(sourceDir, zipFilePath) {
+    const zip = new AdmZip();
+
+    // Add all files to the zip
+    zip.addLocalFolder(sourceDir);
+
+    // Save the zip file
+    zip.writeZip(zipFilePath);
+
+    return zipFilePath;
   }
 
   // Helper function to create a sitemap
@@ -173,9 +193,15 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
 
     // Add links to all pages
     for (const [url, localPath] of processedUrls.entries()) {
-      const relativePath = path.relative(outputPath, localPath);
+      // Use relative path with proper prefix
+      const relativePath = path.relative(outputPath, localPath)
+        .replace(/\\/g, '/');
+
+      // Add "./" prefix for correct relative paths
+      const prefixedPath = `./${relativePath}`;
+
       const title = url.replace(/^https?:\/\//, '');
-      sitemapHtml += `    <li><a href="${relativePath.replace(/\\/g, '/')}">${title}</a></li>\n`;
+      sitemapHtml += `    <li><a href="${prefixedPath}">${title}</a></li>\n`;
     }
 
     sitemapHtml += `
@@ -279,17 +305,17 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
       }
 
       const assetPath = path.join(dir, uniqueFilename);
+
+      // Make sure the directory exists before writing file
+      await fs.mkdir(path.dirname(assetPath), { recursive: true });
       await fs.writeFile(assetPath, response.data);
 
-      // Store relative path for use in HTML
-      const relativePath = assetPath; // keep the full path
-
-      // Record this asset for future deduplication
-      const assetInfo = { path: relativePath, type, url: assetUrl };
+      // Store the full path for use in HTML
+      const assetInfo = { path: assetPath, type, url: assetUrl };
       assetHashes.set(contentHash, assetInfo);
 
       // Map this URL to its local path
-      urlToLocalMap.set(assetUrl, relativePath);
+      urlToLocalMap.set(assetUrl, assetPath);
 
       return assetInfo;
     } catch (error) {
@@ -325,24 +351,33 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
     const filename = path.basename(pathname);
     const dirPath = path.dirname(pathname);
 
-    // Construct local path
-    let localPath;
-    if (pathname === '/index.html' && depth === 0) {
-      // Special case for root page
-      localPath = path.join(pagesDir, 'index.html');
-    } else {
-      // Create a path that includes domain and path structure
-      const domainPath = path.join(pagesDir, hostname);
+    // Always include domain name in path structure to avoid collisions
+    const domainDir = path.join(pagesDir, hostname);
 
-      // Make sure the directory exists
-      fs.mkdir(path.join(domainPath, dirPath), { recursive: true }).catch(err => {
-        console.warn(`Failed to create directory ${path.join(domainPath, dirPath)}:`, err.message);
-      });
-
-      localPath = path.join(domainPath, dirPath, filename);
+    // Create path that includes domain and pathname
+    let finalDirPath = domainDir;
+    if (dirPath !== '/' && dirPath !== '.') {
+      // Remove leading slash if present
+      const cleanDirPath = dirPath.startsWith('/') ? dirPath.slice(1) : dirPath;
+      finalDirPath = path.join(domainDir, cleanDirPath);
     }
 
+    // Generate the full local path
+    const localPath = path.join(finalDirPath, filename);
+
     return localPath;
+  }
+
+  // Helper function to create relative path with proper "./pages/" prefix
+  function createRelativePath(fromPath, toPath) {
+    let relativePath = path.relative(path.dirname(fromPath), toPath).replace(/\\/g, '/');
+
+    // If the path doesn't start with "./" add it
+    if (!relativePath.startsWith('.') && !relativePath.startsWith('/')) {
+      relativePath = `./${relativePath}`;
+    }
+
+    return relativePath;
   }
 
   // Helper function to process a URL
@@ -436,6 +471,30 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
       // Process CSS imports
       const processedStylesheets = new Set();
 
+      // First replace absolute HTTP/HTTPS URLs in href and src attributes
+      // if they're already in our mapping
+      $('[href], [src]').each((_, element) => {
+        const attrNames = ['href', 'src'];
+        attrNames.forEach(attrName => {
+          const attrValue = $(element).attr(attrName);
+          if (attrValue && (attrValue.startsWith('http://') || attrValue.startsWith('https://'))) {
+            try {
+              const fullUrl = new URL(attrValue, baseUrl).toString();
+
+              // Check if we already have a local path for this URL
+              if (urlToLocalMap.has(fullUrl)) {
+                const localUrl = urlToLocalMap.get(fullUrl);
+                const relativePath = createRelativePath(localPath, localUrl);
+
+                $(element).attr(attrName, relativePath);
+              }
+            } catch (error) {
+              // Ignore invalid URLs
+            }
+          }
+        });
+      });
+
       // Collect assets
       for (const [selector, attr] of Object.entries(assetTypes)) {
         $(selector).each((_, element) => {
@@ -448,10 +507,7 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
               const promise = processAsset(fullUrl, url).then(assetInfo => {
                 if (assetInfo) {
                   // Create a relative path from the HTML file to the asset
-                  const relativePath = path.relative(
-                    path.dirname(localPath),
-                    assetInfo.path
-                  ).replace(/\\/g, '/');
+                  const relativePath = createRelativePath(localPath, assetInfo.path);
 
                   // Update HTML to use local path
                   $(element).attr(attr, relativePath);
@@ -497,10 +553,7 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
                 const promise = processAsset(fullUrl, url).then(assetInfo => {
                   if (assetInfo) {
                     // Create a relative path from the HTML file to the asset
-                    const relativePath = path.relative(
-                      path.dirname(localPath),
-                      assetInfo.path
-                    ).replace(/\\/g, '/');
+                    const relativePath = createRelativePath(localPath, assetInfo.path);
 
                     // Replace the URL in the CSS
                     modifiedCss = modifiedCss.replace(
@@ -562,10 +615,7 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
               const linkedLocalPath = processedUrls.get(linkedUrl);
 
               // Create a relative path from this page to the linked page
-              const relativePath = path.relative(
-                path.dirname(localPath),
-                linkedLocalPath
-              ).replace(/\\/g, '/');
+              const relativePath = createRelativePath(localPath, linkedLocalPath);
 
               // Update the link
               $(element).attr('href', relativePath);
@@ -575,10 +625,7 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
               const linkedLocalPath = pendingUrls.get(linkedUrl).localPath;
 
               // Create a relative path
-              const relativePath = path.relative(
-                path.dirname(localPath),
-                linkedLocalPath
-              ).replace(/\\/g, '/');
+              const relativePath = createRelativePath(localPath, linkedLocalPath);
 
               // Update the link
               $(element).attr('href', relativePath);
@@ -588,10 +635,7 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
               const linkedLocalPath = createLocalPath(linkedUrl, depth + 1);
 
               // Create a relative path
-              const relativePath = path.relative(
-                path.dirname(localPath),
-                linkedLocalPath
-              ).replace(/\\/g, '/');
+              const relativePath = createRelativePath(localPath, linkedLocalPath);
 
               // Update the link
               $(element).attr('href', relativePath);
@@ -609,7 +653,26 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
         });
       }
 
-      // Save modified HTML
+      // Additional pass to replace any remaining external links with local ones if possible
+      $('a[href^="http"], a[href^="https"]').each((_, element) => {
+        const href = $(element).attr('href');
+        try {
+          const fullUrl = new URL(href, baseUrl).toString();
+
+          // Check if we already have a local path for this URL
+          if (urlToLocalMap.has(fullUrl)) {
+            const localUrl = urlToLocalMap.get(fullUrl);
+            const relativePath = createRelativePath(localPath, localUrl);
+
+            $(element).attr('href', relativePath);
+          }
+        } catch (error) {
+          // Ignore invalid URLs
+        }
+      });
+
+      // Save modified HTML - ensure directory exists first
+      await fs.mkdir(path.dirname(localPath), { recursive: true });
       const modifiedHtml = $.html();
       await fs.writeFile(localPath, modifiedHtml);
 
@@ -622,7 +685,17 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
   // Helper function to process a CSS file for url() references
   async function processCssFile(cssFilePath, baseUrl) {
     try {
-      const cssContent = await fs.readFile(cssFilePath, 'utf8');
+      // Ensure the directory exists before attempting to read
+      await fs.mkdir(path.dirname(cssFilePath), { recursive: true });
+
+      // Read the file, if it exists
+      let cssContent;
+      try {
+        cssContent = await fs.readFile(cssFilePath, 'utf8');
+      } catch (err) {
+        console.warn(`Could not read CSS file ${cssFilePath}: ${err.message}`);
+        return;
+      }
 
       // Find all url() and @import references
       const urlRegex = /url\(['"]?([^'")\s]+)['"]?\)/g;
@@ -643,10 +716,7 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
             const promise = processAsset(fullUrl, baseUrl).then(assetInfo => {
               if (assetInfo) {
                 // Create a relative path from the CSS file to the asset
-                const relativePath = path.relative(
-                  path.dirname(cssFilePath),
-                  assetInfo.path
-                ).replace(/\\/g, '/');
+                const relativePath = createRelativePath(cssFilePath, assetInfo.path);
 
                 // Replace the URL in the CSS
                 modifiedCss = modifiedCss.replace(
@@ -674,10 +744,7 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
           const promise = processAsset(fullUrl, baseUrl).then(assetInfo => {
             if (assetInfo) {
               // Create a relative path from the CSS file to the imported CSS
-              const relativePath = path.relative(
-                path.dirname(cssFilePath),
-                assetInfo.path
-              ).replace(/\\/g, '/');
+              const relativePath = createRelativePath(cssFilePath, assetInfo.path);
 
               // Replace the import in the CSS
               modifiedCss = modifiedCss.replace(
@@ -711,12 +778,13 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
 // Example usage
 async function main() {
   try {
-    const outputPath = path.join(process.cwd(), 'archived-website');
-    const result = await downloadWebsite('https://www.tutorialspoint.com/html/index.htm', outputPath, {
-      maxDepth: 4,
+    const outputPath = path.join(process.cwd(), 'output');
+    const result = await downloadWebsite('https://bollyflix.dog/', outputPath, {
+      maxDepth: 2,
       sameDomainOnly: true
     });
-    console.log(`Website archived successfully to: ${result.outputPath}`);
+    console.log(`\nWebsite archived successfully!`);
+    console.log(`Archive created at: ${result.zipFilePath}`);
     console.log(`Stats: ${JSON.stringify(result.stats, null, 2)}`);
   } catch (error) {
     console.error('Error:', error.message);
