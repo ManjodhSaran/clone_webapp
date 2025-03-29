@@ -2,6 +2,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import fs from 'fs/promises';
 import path from 'path';
+import crypto from 'crypto';
 import mime from 'mime-types';
 import sanitize from 'sanitize-filename';
 import AdmZip from 'adm-zip';
@@ -13,44 +14,63 @@ import pQueue from 'p-queue';
 // Configuration options
 const CONFIG = {
   maxDepth: 2,                   // How many levels of links to follow
-  maxPagesPerDomain: 50,         // Maximum pages to download per domain
-  maxTotalPages: 200,            // Maximum total pages to download
+  maxPagesPerDomain: 100,        // Maximum pages to download per domain
+  maxTotalPages: 500,            // Maximum total pages to download
   maxConcurrent: 5,              // Maximum concurrent downloads
-  excludeExtensions: ['.pdf', '.zip', '.rar', '.exe', '.dmg', '.iso', '.mp4', '.mp3', '.avi'],
+  excludeExtensions: ['.pdf', '.zip', '.rar', '.exe', '.dmg', '.iso'],
   timeout: 30000,                // 30 seconds timeout
   maxAssetSize: 50 * 1024 * 1024, // 50MB max for assets
   userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
 };
 
-export async function downloadWebsite(startUrl, options = {}) {
+export async function downloadWebsite(startUrl, outputPath, options = {}) {
   // Merge default config with provided options
   const config = { ...CONFIG, ...options };
 
-  // Create temporary directory
-  const tempDir = await mkdtemp(path.join(tmpdir(), 'website-'));
-  const pagesDir = path.join(tempDir, 'pages');
-  const zip = new AdmZip();
+  // Ensure output directory exists
+  await fs.mkdir(outputPath, { recursive: true });
+
+  // Create temporary directory with organized structure
+  const pagesDir = path.join(outputPath, 'pages');
+  const assetsDir = path.join(outputPath, 'assets');
+  const cssDir = path.join(assetsDir, 'css');
+  const jsDir = path.join(assetsDir, 'js');
+  const imgDir = path.join(assetsDir, 'img');
+  const fontDir = path.join(assetsDir, 'fonts');
+  const otherDir = path.join(assetsDir, 'other');
 
   // Initialize tracking variables
-  const processedUrls = new Set();
+  const processedUrls = new Map(); // url -> localPath
   const pendingUrls = new Map(); // url -> { depth, localPath }
   const domainCounters = new Map();
   const queue = new pQueue({ concurrency: config.maxConcurrent });
 
+  // Asset tracking for deduplication
+  const assetHashes = new Map(); // hash -> { path, type, url }
+  const urlToLocalMap = new Map(); // originalUrl -> localPath (for both pages and assets)
+
   let totalPages = 0;
   let failedPages = 0;
   let totalAssets = 0;
+  let duplicateAssets = 0;
 
   try {
     // Create directory structure
     await fs.mkdir(pagesDir, { recursive: true });
+    await fs.mkdir(cssDir, { recursive: true });
+    await fs.mkdir(jsDir, { recursive: true });
+    await fs.mkdir(imgDir, { recursive: true });
+    await fs.mkdir(fontDir, { recursive: true });
+    await fs.mkdir(otherDir, { recursive: true });
 
     // Parse starting URL
     const startUrlObj = new URL(startUrl);
     const baseDomain = startUrlObj.hostname;
 
+    // Create the base index.html path
+    const startUrlLocal = path.join(pagesDir, 'index.html');
+
     // Add starting URL to queue
-    const startUrlLocal = 'index.html';
     pendingUrls.set(startUrl, { depth: 0, localPath: startUrlLocal });
 
     // Process queue
@@ -65,13 +85,16 @@ export async function downloadWebsite(startUrl, options = {}) {
         // Skip if already processed
         if (processedUrls.has(url)) continue;
 
-        // Add to processed
-        processedUrls.add(url);
+        // Add to processed with its local path
+        processedUrls.set(url, localPath);
+
+        // Map this URL to its local path for reference in links
+        urlToLocalMap.set(url, localPath);
 
         // Process URL
         batchPromises.push(queue.add(() => processUrl(url, depth, localPath)));
 
-        // Check domain and total limits
+        // Check total pages limit
         if (totalPages >= config.maxTotalPages) break;
       }
 
@@ -79,32 +102,247 @@ export async function downloadWebsite(startUrl, options = {}) {
       await Promise.all(batchPromises);
     }
 
-    // Create ZIP file
-    zip.addLocalFolder(tempDir);
-    const zipBuffer = zip.toBuffer();
-
-    // Generate filename
-    const sanitizedDomain = sanitize(baseDomain);
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `${sanitizedDomain}-archive-${timestamp}.zip`;
-
-    // Clean up temp directory
-    // await fs.rm(tempDir, { recursive: true, force: true });
-
-    return {
-      zipBuffer,
-      filename,
+    // Create a manifest file with metadata
+    const manifest = {
+      originalUrl: startUrl,
+      dateArchived: new Date().toISOString(),
       stats: {
         totalPages,
         failedPages,
         totalAssets,
-        processedUrls: Array.from(processedUrls)
+        uniqueAssets: totalAssets - duplicateAssets,
+        duplicateAssets
+      },
+      domains: Object.fromEntries(domainCounters),
+      config
+    };
+
+    await fs.writeFile(
+      path.join(outputPath, 'archive-manifest.json'),
+      JSON.stringify(manifest, null, 2)
+    );
+
+    // Create a sitemap HTML file
+    await createSitemap(outputPath, processedUrls);
+
+    console.log(`\nArchiving complete!`);
+    console.log(`Total pages: ${totalPages}`);
+    console.log(`Total unique assets: ${totalAssets - duplicateAssets}`);
+    console.log(`Duplicate assets (saved): ${duplicateAssets}`);
+    console.log(`Failed pages: ${failedPages}`);
+    console.log(`Output saved to: ${outputPath}`);
+
+    return {
+      outputPath,
+      stats: {
+        totalPages,
+        failedPages,
+        totalAssets,
+        uniqueAssets: totalAssets - duplicateAssets,
+        duplicateAssets,
+        processedUrls: Array.from(processedUrls.keys())
       }
     };
   } catch (error) {
-    // Clean up temp directory in case of error
-    await fs.rm(tempDir, { recursive: true, force: true });
-    throw new Error(`Failed to download website: ${error.message}`);
+    console.error(`Failed to download website: ${error.message}`);
+    throw error;
+  }
+
+  // Helper function to create a sitemap
+  async function createSitemap(outputPath, processedUrls) {
+    let sitemapHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Site Archive Sitemap</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        h1 { color: #333; }
+        ul { list-style-type: none; padding: 0; }
+        li { margin: 5px 0; }
+        a { color: #0066cc; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+      </style>
+    </head>
+    <body>
+      <h1>Site Archive Sitemap</h1>
+      <p>This archive contains ${processedUrls.size} pages.</p>
+      <ul>
+    `;
+
+    // Add links to all pages
+    for (const [url, localPath] of processedUrls.entries()) {
+      const relativePath = path.relative(outputPath, localPath);
+      const title = url.replace(/^https?:\/\//, '');
+      sitemapHtml += `    <li><a href="${relativePath.replace(/\\/g, '/')}">${title}</a></li>\n`;
+    }
+
+    sitemapHtml += `
+      </ul>
+    </body>
+    </html>
+    `;
+
+    await fs.writeFile(path.join(outputPath, 'sitemap.html'), sitemapHtml);
+  }
+
+  // Helper function to determine asset type and directory based on content type
+  function getAssetTypeAndDir(contentType, urlPath) {
+    const extension = path.extname(urlPath).toLowerCase();
+
+    if (contentType.includes('text/css') || extension === '.css') {
+      return { type: 'css', dir: cssDir };
+    } else if (contentType.includes('javascript') || extension === '.js') {
+      return { type: 'js', dir: jsDir };
+    } else if (contentType.includes('image/') || ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.ico', '.bmp'].includes(extension)) {
+      return { type: 'img', dir: imgDir };
+    } else if (contentType.includes('font') || ['.woff', '.woff2', '.ttf', '.eot', '.otf'].includes(extension)) {
+      return { type: 'font', dir: fontDir };
+    } else {
+      return { type: 'other', dir: otherDir };
+    }
+  }
+
+  // Helper function to get sanitized filename
+  function getSanitizedFilename(url, contentType) {
+    const urlObj = new URL(url);
+    const pathname = urlObj.pathname;
+    let filename = path.basename(pathname);
+
+    // If no filename or just a slash, generate one based on the URL
+    if (!filename || filename === '/' || filename === '') {
+      const extension = mime.extension(contentType) || 'txt';
+      const urlHash = crypto.createHash('md5').update(url).digest('hex').slice(0, 8);
+      filename = `${urlObj.hostname}-${urlHash}.${extension}`;
+    }
+
+    // Ensure the filename has an extension
+    if (!path.extname(filename) && contentType) {
+      const extension = mime.extension(contentType);
+      if (extension) {
+        filename = `${filename}.${extension}`;
+      }
+    }
+
+    return sanitize(filename);
+  }
+
+  // Helper function to download and process an asset
+  async function processAsset(assetUrl, originPage) {
+    try {
+      // If we've already processed this URL, return the mapped local path
+      if (urlToLocalMap.has(assetUrl)) {
+        return {
+          path: urlToLocalMap.get(assetUrl),
+          url: assetUrl
+        };
+      }
+
+      const response = await axios.get(assetUrl, {
+        responseType: 'arraybuffer',
+        timeout: config.timeout,
+        maxContentLength: config.maxAssetSize,
+        headers: {
+          'User-Agent': config.userAgent
+        }
+      });
+
+      const contentType = response.headers['content-type'] || '';
+      const { type, dir } = getAssetTypeAndDir(contentType, assetUrl);
+
+      // Calculate hash for deduplication
+      const contentHash = crypto.createHash('md5').update(response.data).digest('hex');
+
+      // Check if we've already downloaded this exact asset
+      if (assetHashes.has(contentHash)) {
+        duplicateAssets++;
+        const assetInfo = assetHashes.get(contentHash);
+        // Map this URL to the existing file
+        urlToLocalMap.set(assetUrl, assetInfo.path);
+        return assetInfo;
+      }
+
+      // This is a new unique asset
+      totalAssets++;
+      const filename = getSanitizedFilename(assetUrl, contentType);
+
+      // Ensure unique filenames within the same asset type directory
+      let uniqueFilename = filename;
+      let counter = 1;
+
+      while (await fileExists(path.join(dir, uniqueFilename))) {
+        const ext = path.extname(filename);
+        const base = path.basename(filename, ext);
+        uniqueFilename = `${base}-${counter}${ext}`;
+        counter++;
+      }
+
+      const assetPath = path.join(dir, uniqueFilename);
+      await fs.writeFile(assetPath, response.data);
+
+      // Store relative path for use in HTML
+      const relativePath = assetPath; // keep the full path
+
+      // Record this asset for future deduplication
+      const assetInfo = { path: relativePath, type, url: assetUrl };
+      assetHashes.set(contentHash, assetInfo);
+
+      // Map this URL to its local path
+      urlToLocalMap.set(assetUrl, relativePath);
+
+      return assetInfo;
+    } catch (error) {
+      console.warn(`Failed to download asset: ${assetUrl}`, error.message);
+      return null;
+    }
+  }
+
+  // Helper function to check if a file exists
+  async function fileExists(filePath) {
+    try {
+      await fs.access(filePath);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // Helper function to create a sanitized local path for a URL
+  function createLocalPath(url, depth) {
+    const urlObj = new URL(url);
+    const hostname = sanitize(urlObj.hostname);
+    let pathname = urlObj.pathname;
+
+    // Clean up pathname
+    if (pathname.endsWith('/')) {
+      pathname += 'index.html';
+    } else if (!path.extname(pathname)) {
+      pathname += '.html';
+    }
+
+    // Extract filename and directory path
+    const filename = path.basename(pathname);
+    const dirPath = path.dirname(pathname);
+
+    // Construct local path
+    let localPath;
+    if (pathname === '/index.html' && depth === 0) {
+      // Special case for root page
+      localPath = path.join(pagesDir, 'index.html');
+    } else {
+      // Create a path that includes domain and path structure
+      const domainPath = path.join(pagesDir, hostname);
+
+      // Make sure the directory exists
+      fs.mkdir(path.join(domainPath, dirPath), { recursive: true }).catch(err => {
+        console.warn(`Failed to create directory ${path.join(domainPath, dirPath)}:`, err.message);
+      });
+
+      localPath = path.join(domainPath, dirPath, filename);
+    }
+
+    return localPath;
   }
 
   // Helper function to process a URL
@@ -129,8 +367,8 @@ export async function downloadWebsite(startUrl, options = {}) {
     console.log(`[${totalPages}] Processing: ${url} (depth ${depth})`);
 
     try {
-      // Create page directory
-      const pageDir = path.dirname(path.join(pagesDir, localPath));
+      // Ensure directory exists
+      const pageDir = path.dirname(localPath);
       await fs.mkdir(pageDir, { recursive: true });
 
       // Fetch webpage content
@@ -152,14 +390,29 @@ export async function downloadWebsite(startUrl, options = {}) {
 
       // Parse HTML
       const $ = cheerio.load(html);
-      const assets = new Set();
 
-      // Process page assets
-      const assetsDir = path.join(pageDir, 'assets');
-      await fs.mkdir(assetsDir, { recursive: true });
+      // Remove problematic elements
+      $('script[src*="analytics"]').remove();
+      $('script[src*="google-analytics"]').remove();
+      $('script[src*="googletagmanager"]').remove();
+      $('script[src*="facebook"]').remove();
+      $('script[src*="twitter"]').remove();
+      $('iframe[src*="youtube"]').remove(); // Can optionally keep if video archiving is needed
 
       // Remove srcset attribute from all images
       $('img').removeAttr('srcset');
+      $('source').removeAttr('srcset');
+
+      // Process base tag if exists
+      let baseUrl = url;
+      const baseTag = $('base[href]');
+      if (baseTag.length) {
+        try {
+          baseUrl = new URL(baseTag.attr('href'), url).toString();
+        } catch (e) {
+          console.warn(`Invalid base URL: ${baseTag.attr('href')}`);
+        }
+      }
 
       // Process different asset types
       const assetTypes = {
@@ -170,51 +423,112 @@ export async function downloadWebsite(startUrl, options = {}) {
         'source[src]': 'src',
         'audio[src]': 'src',
         'link[rel="icon"]': 'href',
-        'link[rel="shortcut icon"]': 'href'
+        'link[rel="shortcut icon"]': 'href',
+        'link[rel="preload"][as="style"]': 'href',
+        'link[rel="preload"][as="script"]': 'href',
+        'link[rel="preload"][as="font"]': 'href',
+        'link[rel="preload"][as="image"]': 'href'
       };
+
+      // Process all assets in parallel for speed
+      const assetPromises = [];
+
+      // Process CSS imports
+      const processedStylesheets = new Set();
 
       // Collect assets
       for (const [selector, attr] of Object.entries(assetTypes)) {
         $(selector).each((_, element) => {
           const assetUrl = $(element).attr(attr);
-          if (assetUrl && !assetUrl.startsWith('data:') && !assetUrl.startsWith('blob:')) {
+          if (assetUrl && !assetUrl.startsWith('data:') && !assetUrl.startsWith('blob:') && !assetUrl.startsWith('#')) {
             try {
-              const fullUrl = new URL(assetUrl, url).toString();
-              assets.add(fullUrl);
+              const fullUrl = new URL(assetUrl, baseUrl).toString();
+
+              // Process this asset and store the promise
+              const promise = processAsset(fullUrl, url).then(assetInfo => {
+                if (assetInfo) {
+                  // Create a relative path from the HTML file to the asset
+                  const relativePath = path.relative(
+                    path.dirname(localPath),
+                    assetInfo.path
+                  ).replace(/\\/g, '/');
+
+                  // Update HTML to use local path
+                  $(element).attr(attr, relativePath);
+
+                  // For CSS, we need to process it further to handle imports and url() references
+                  if (assetInfo.type === 'css' && !processedStylesheets.has(fullUrl)) {
+                    processedStylesheets.add(fullUrl);
+
+                    // Add a promise to process the CSS file
+                    const cssPromise = processCssFile(assetInfo.path, baseUrl);
+                    assetPromises.push(cssPromise);
+                  }
+                }
+                return assetInfo;
+              });
+
+              assetPromises.push(promise);
             } catch (error) {
-              console.warn(`Invalid URL: ${assetUrl}`, error.message);
+              console.warn(`Invalid asset URL: ${assetUrl}`, error.message);
             }
           }
         });
       }
 
-      // Download assets
-      for (const assetUrl of assets) {
-        try {
-          const response = await axios.get(assetUrl, {
-            responseType: 'arraybuffer',
-            timeout: config.timeout,
-            maxContentLength: config.maxAssetSize,
-            headers: {
-              'User-Agent': config.userAgent
+      // Process CSS to handle inline url() references
+      $('style').each((_, element) => {
+        const cssContent = $(element).html();
+        if (cssContent) {
+          // Find all url() references in the CSS
+          const urlRegex = /url\(['"]?([^'")\s]+)['"]?\)/g;
+          let match;
+          let modifiedCss = cssContent;
+
+          const cssAssetPromises = [];
+
+          while ((match = urlRegex.exec(cssContent)) !== null) {
+            const cssAssetUrl = match[1];
+            if (cssAssetUrl && !cssAssetUrl.startsWith('data:') && !cssAssetUrl.startsWith('#')) {
+              try {
+                const fullUrl = new URL(cssAssetUrl, baseUrl).toString();
+
+                // Process this asset
+                const promise = processAsset(fullUrl, url).then(assetInfo => {
+                  if (assetInfo) {
+                    // Create a relative path from the HTML file to the asset
+                    const relativePath = path.relative(
+                      path.dirname(localPath),
+                      assetInfo.path
+                    ).replace(/\\/g, '/');
+
+                    // Replace the URL in the CSS
+                    modifiedCss = modifiedCss.replace(
+                      new RegExp(`url\\(['"]?${cssAssetUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]?\\)`, 'g'),
+                      `url(${relativePath})`
+                    );
+                  }
+                  return assetInfo;
+                });
+
+                cssAssetPromises.push(promise);
+              } catch (error) {
+                console.warn(`Invalid CSS asset URL: ${cssAssetUrl}`, error.message);
+              }
             }
+          }
+
+          // Wait for all CSS assets to be processed
+          Promise.all(cssAssetPromises).then(() => {
+            $(element).html(modifiedCss);
           });
 
-          const extension = mime.extension(response.headers['content-type']) || 'txt';
-          const assetFilename = `asset-${totalAssets}.${extension}`;
-          const assetPath = path.join(assetsDir, assetFilename);
-
-          await fs.writeFile(assetPath, response.data);
-
-          // Update HTML to use local path
-          $(`[src="${assetUrl}"]`).attr('src', `assets/${assetFilename}`);
-          $(`[href="${assetUrl}"]`).attr('href', `assets/${assetFilename}`);
-
-          totalAssets++;
-        } catch (error) {
-          console.warn(`Failed to download asset: ${assetUrl}`, error.message);
+          assetPromises.push(...cssAssetPromises);
         }
-      }
+      });
+
+      // Wait for all assets to be processed
+      await Promise.all(assetPromises);
 
       // Process links to other pages if depth allows
       if (depth < config.maxDepth) {
@@ -228,13 +542,8 @@ export async function downloadWebsite(startUrl, options = {}) {
             }
 
             // Create absolute URL
-            const linkedUrl = new URL(href, url).toString();
+            const linkedUrl = new URL(href, baseUrl).toString();
             const linkedUrlObj = new URL(linkedUrl);
-
-            // Skip already processed URLs
-            if (processedUrls.has(linkedUrl) || pendingUrls.has(linkedUrl)) {
-              return;
-            }
 
             // Skip different domains if following only same domain
             if (config.sameDomainOnly && linkedUrlObj.hostname !== urlObj.hostname) {
@@ -247,38 +556,52 @@ export async function downloadWebsite(startUrl, options = {}) {
               return;
             }
 
-            // Create local path for the linked page
-            const pathSegments = linkedUrlObj.pathname.split('/').filter(Boolean);
-            let localLinkedPath;
+            // If this URL has already been processed or is pending
+            if (processedUrls.has(linkedUrl)) {
+              // Use the already assigned local path
+              const linkedLocalPath = processedUrls.get(linkedUrl);
 
-            if (pathSegments.length === 0) {
-              // Root page of a domain
-              localLinkedPath = `${sanitize(linkedUrlObj.hostname)}/index.html`;
-            } else {
-              const lastSegment = pathSegments[pathSegments.length - 1] || 'index';
-              const filename = lastSegment.includes('.') ? lastSegment : `${lastSegment}.html`;
-              const dirPath = pathSegments.slice(0, -1).map(segment => sanitize(segment)).join('/');
+              // Create a relative path from this page to the linked page
+              const relativePath = path.relative(
+                path.dirname(localPath),
+                linkedLocalPath
+              ).replace(/\\/g, '/');
 
-              if (dirPath) {
-                localLinkedPath = `${sanitize(linkedUrlObj.hostname)}/${dirPath}/${sanitize(filename)}`;
-              } else {
-                localLinkedPath = `${sanitize(linkedUrlObj.hostname)}/${sanitize(filename)}`;
-              }
+              // Update the link
+              $(element).attr('href', relativePath);
             }
+            else if (pendingUrls.has(linkedUrl)) {
+              // URL is pending, use its assigned local path
+              const linkedLocalPath = pendingUrls.get(linkedUrl).localPath;
 
-            // Update the link in HTML
-            const relativePath = path.relative(
-              path.dirname(path.join(pagesDir, localPath)),
-              path.join(pagesDir, localLinkedPath)
-            );
+              // Create a relative path
+              const relativePath = path.relative(
+                path.dirname(localPath),
+                linkedLocalPath
+              ).replace(/\\/g, '/');
 
-            $(element).attr('href', relativePath);
+              // Update the link
+              $(element).attr('href', relativePath);
+            }
+            else {
+              // This is a new URL - create a local path for it
+              const linkedLocalPath = createLocalPath(linkedUrl, depth + 1);
 
-            // Add to pending URLs
-            pendingUrls.set(linkedUrl, {
-              depth: depth + 1,
-              localPath: localLinkedPath
-            });
+              // Create a relative path
+              const relativePath = path.relative(
+                path.dirname(localPath),
+                linkedLocalPath
+              ).replace(/\\/g, '/');
+
+              // Update the link
+              $(element).attr('href', relativePath);
+
+              // Add to pending URLs
+              pendingUrls.set(linkedUrl, {
+                depth: depth + 1,
+                localPath: linkedLocalPath
+              });
+            }
 
           } catch (error) {
             console.warn(`Invalid link: ${href}`, error.message);
@@ -288,139 +611,117 @@ export async function downloadWebsite(startUrl, options = {}) {
 
       // Save modified HTML
       const modifiedHtml = $.html();
-      await fs.writeFile(path.join(pagesDir, localPath), modifiedHtml);
+      await fs.writeFile(localPath, modifiedHtml);
 
     } catch (error) {
       console.error(`Failed to process URL: ${url}`, error.message);
       failedPages++;
     }
   }
-}
 
-// Export the original single page downloader as well
-export async function downloadWebpage(url) {
-  const tempDir = await mkdtemp(path.join(tmpdir(), 'webpage-'));
-  const assetsDir = path.join(tempDir, 'assets');
-  const zip = new AdmZip();
+  // Helper function to process a CSS file for url() references
+  async function processCssFile(cssFilePath, baseUrl) {
+    try {
+      const cssContent = await fs.readFile(cssFilePath, 'utf8');
 
-  try {
-    // Create directories
-    await fs.mkdir(assetsDir, { recursive: true });
+      // Find all url() and @import references
+      const urlRegex = /url\(['"]?([^'")\s]+)['"]?\)/g;
+      const importRegex = /@import\s+['"]([^'"]+)['"]/g;
 
-    // Fetch webpage content
-    console.log('Fetching webpage:', url);
-    const response = await axios.get(url, {
-      timeout: 30000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
-    });
+      let modifiedCss = cssContent;
+      const assetPromises = [];
 
-    const html = response.data;
-
-    // Parse HTML
-    const $ = cheerio.load(html);
-    const assets = new Set();
-    let downloadedAssets = 0;
-
-    // Process different asset types
-    const assetTypes = {
-      'img[src]': 'src',
-      'link[rel="stylesheet"]': 'href',
-      'script[src]': 'src',
-      'video[src]': 'src',
-      'source[src]': 'src',
-      'audio[src]': 'src',
-      'link[rel="icon"]': 'href',
-      'link[rel="shortcut icon"]': 'href'
-    };
-
-    // Remove srcset attribute from all images to ensure offline availability
-    $('img').removeAttr('srcset');
-
-    // Download assets
-    for (const [selector, attr] of Object.entries(assetTypes)) {
-      $(selector).each((_, element) => {
-        const assetUrl = $(element).attr(attr);
-        if (assetUrl && !assetUrl.startsWith('data:') && !assetUrl.startsWith('blob:')) {
+      // Process url() references
+      let match;
+      while ((match = urlRegex.exec(cssContent)) !== null) {
+        const cssAssetUrl = match[1];
+        if (cssAssetUrl && !cssAssetUrl.startsWith('data:') && !cssAssetUrl.startsWith('#')) {
           try {
-            const fullUrl = new URL(assetUrl, url).toString();
-            assets.add(fullUrl);
+            const fullUrl = new URL(cssAssetUrl, baseUrl).toString();
+
+            // Process this asset
+            const promise = processAsset(fullUrl, baseUrl).then(assetInfo => {
+              if (assetInfo) {
+                // Create a relative path from the CSS file to the asset
+                const relativePath = path.relative(
+                  path.dirname(cssFilePath),
+                  assetInfo.path
+                ).replace(/\\/g, '/');
+
+                // Replace the URL in the CSS
+                modifiedCss = modifiedCss.replace(
+                  new RegExp(`url\\(['"]?${cssAssetUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]?\\)`, 'g'),
+                  `url(${relativePath})`
+                );
+              }
+              return assetInfo;
+            });
+
+            assetPromises.push(promise);
           } catch (error) {
-            console.warn(`Invalid URL: ${assetUrl}`, error.message);
+            console.warn(`Invalid CSS asset URL: ${cssAssetUrl}`, error.message);
           }
         }
-      });
-    }
-
-    // Download and save assets
-    for (const assetUrl of assets) {
-      try {
-        const response = await axios.get(assetUrl, {
-          responseType: 'arraybuffer',
-          timeout: 30000,
-          maxContentLength: 50 * 1024 * 1024, // 50MB max
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          }
-        });
-
-        const extension = mime.extension(response.headers['content-type']) || 'txt';
-        const filename = `asset-${downloadedAssets}.${extension}`;
-        const assetPath = path.join(assetsDir, filename);
-
-        await fs.writeFile(assetPath, response.data);
-
-        // Update HTML to use local path
-        $(`[src="${assetUrl}"]`).attr('src', `assets/${filename}`);
-        $(`[href="${assetUrl}"]`).attr('href', `assets/${filename}`);
-
-        downloadedAssets++;
-      } catch (error) {
-        console.warn(`Failed to download asset: ${assetUrl}`, error.message);
       }
+
+      // Process @import references
+      while ((match = importRegex.exec(cssContent)) !== null) {
+        const importUrl = match[1];
+        try {
+          const fullUrl = new URL(importUrl, baseUrl).toString();
+
+          // Process this asset as a CSS file
+          const promise = processAsset(fullUrl, baseUrl).then(assetInfo => {
+            if (assetInfo) {
+              // Create a relative path from the CSS file to the imported CSS
+              const relativePath = path.relative(
+                path.dirname(cssFilePath),
+                assetInfo.path
+              ).replace(/\\/g, '/');
+
+              // Replace the import in the CSS
+              modifiedCss = modifiedCss.replace(
+                new RegExp(`@import\\s+['"]${importUrl.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}['"]`, 'g'),
+                `@import "${relativePath}"`
+              );
+
+              // Also process the imported CSS
+              return processCssFile(assetInfo.path, fullUrl);
+            }
+          });
+
+          assetPromises.push(promise);
+        } catch (error) {
+          console.warn(`Invalid CSS import URL: ${importUrl}`, error.message);
+        }
+      }
+
+      // Wait for all assets to be processed
+      await Promise.all(assetPromises);
+
+      // Save the modified CSS
+      await fs.writeFile(cssFilePath, modifiedCss);
+
+    } catch (error) {
+      console.warn(`Failed to process CSS file ${cssFilePath}:`, error.message);
     }
-
-    // Save modified HTML
-    const modifiedHtml = $.html();
-    await fs.writeFile(path.join(tempDir, 'index.html'), modifiedHtml);
-
-    // Create ZIP file
-    zip.addLocalFolder(tempDir);
-    const zipBuffer = zip.toBuffer();
-
-    // Clean up temp directory
-    // await fs.rm(tempDir, { recursive: true, force: true });
-
-    const sanitizedUrl = sanitize(new URL(url).hostname);
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `${sanitizedUrl}-${timestamp}.zip`;
-
-    return {
-      zipBuffer,
-      filename,
-      assetsCount: downloadedAssets
-    };
-  } catch (error) {
-    // Clean up temp directory in case of error
-    await fs.rm(tempDir, { recursive: true, force: true });
-    throw new Error(`Failed to download webpage: ${error.message}`);
   }
 }
 
 // Example usage
 async function main() {
   try {
-    const result = await downloadWebsite('https://www.tutorialspoint.com/html/index.htm', {
-      maxDepth: 2,
+    const outputPath = path.join(process.cwd(), 'archived-website');
+    const result = await downloadWebsite('https://www.tutorialspoint.com/html/index.htm', outputPath, {
+      maxDepth: 4,
       sameDomainOnly: true
     });
-    console.log(`Website archived successfully: ${result.filename}`);
+    console.log(`Website archived successfully to: ${result.outputPath}`);
     console.log(`Stats: ${JSON.stringify(result.stats, null, 2)}`);
-    await fs.writeFile(result.filename, result.zipBuffer);
   } catch (error) {
     console.error('Error:', error.message);
   }
 }
 
+// Uncomment to run directly
 main();
