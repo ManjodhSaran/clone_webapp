@@ -1,13 +1,13 @@
-import axios from 'axios';
-import * as cheerio from 'cheerio';
-import fs from 'fs/promises';
 import path from 'path';
-import crypto from 'crypto';
-import mime from 'mime-types';
-import sanitize from 'sanitize-filename';
-import AdmZip from 'adm-zip';
+import axios from 'axios';
 import { URL } from 'url';
+import crypto from 'crypto';
 import pQueue from 'p-queue';
+import fs from 'fs/promises';
+import AdmZip from 'adm-zip';
+import mime from 'mime-types';
+import * as cheerio from 'cheerio';
+import sanitize from 'sanitize-filename';
 
 // Configuration options
 const CONFIG = {
@@ -244,7 +244,8 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
         timeout: config.timeout,
         maxContentLength: config.maxAssetSize,
         headers: {
-          'User-Agent': config.userAgent
+          'User-Agent': config.userAgent,
+          'Authorization': 'eyJhbGciOiJIUzUxMiJ9.eyJqdGkiOiJpYmxpYkpXVCIsInN1YiI6IntcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwidXNlclwiOntcImlkXCI6XCIxMDNcIixcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwiaWRTdHVkZW50XCI6XCJcIixcImZpcnN0TmFtZVwiOlwiTmVoYVwiLFwibGFzdE5hbWVcIjpcIkFycm93XCIsXCJmYXRoZXJOYW1lXCI6XCJcIixcInBob25lTnVtYmVyXCI6XCI2Mzk1OTUyMjcxXCIsXCJlbWFpbEFkZHJlc3NcIjpcImlibGliLmluZm9AZ21haWwuY29tXCIsXCJiaXJ0aERhdGVcIjpcIjIwMDAtMDEtMDFcIixcImdlbmRlclwiOlwiRkVNQUxFXCIsXCJ1c2VySW1hZ2VcIjpcImh0dHBzOi8vZ3JhZGVwbHVzLnMzLmFwLXNvdXRoLTEuYW1hem9uYXdzLmNvbS91c2Vycy9hc3NldHMvaW1nL3VzZXJzL2Nyb3BwZWQ5MjE0MzgxMjk5MjI3Nzg1ODg1LmpwZ1wiLFwidXNlclR5cGVcIjpcIkNMSUVOVF9BRE1JTlwiLFwiaWRTY2hvb2xcIjpcIjQ4XCIsXCJzY2hvb2xOYW1lXCI6bnVsbCxcImN1cnJcIjpcIkNCU0VcIixcImN1cnJZZWFyXCI6XCJDTEFTUy1YXCIsXCJ5ZWFyR3JvdXBcIjpcIlwiLFwiaWRBZGRyZXNzXCI6XCIzNTlcIixcImxvY2FsQWRkcmVzc1wiOlwiVUdGIDAzLCBUcmluaXR5IFNxdWFyZVwiLFwiaXNMb2NrZWRcIjpcIjBcIn0sXCJyb2xlXCI6W119IiwiYXV0aG9yaXRpZXMiOlsiUk9MRV9VU0VSIl0sImlhdCI6MTc0MzU4ODMxOSwiZXhwIjoxNzQzNzY4MzE5fQ.xG_O0EEJ3ZfHWXQT4MVQcidFVCPASZBA7lxuotzLN54mZ3YabHv0FyYyESefOiiHlVxlIdemmqwFoss366_BVw'
         }
       });
 
@@ -764,7 +765,7 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
 async function main() {
   try {
     const outputPath = path.join(process.cwd(), 'output');
-    const result = await downloadWebsite('https://bollyflix.dog/', outputPath, {
+    const result = await downloadWebsite('https://www.iblib.com/user/html/topic/ENENT10023', outputPath, {
       maxDepth: 2,
       sameDomainOnly: true
     });
