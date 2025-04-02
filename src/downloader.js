@@ -12,8 +12,8 @@ import pQueue from 'p-queue';
 // Configuration options
 const CONFIG = {
   maxDepth: 3,                   // How many levels of links to follow
-  maxPagesPerDomain: 10000,        // Maximum pages to download per domain
-  maxTotalPages: 50000,            // Maximum total pages to download
+  maxPagesPerDomain: 10000,      // Maximum pages to download per domain
+  maxTotalPages: 50000,          // Maximum total pages to download
   maxConcurrent: 5,              // Maximum concurrent downloads
   excludeExtensions: ['.pdf', '.zip', '.rar', '.exe', '.dmg', '.iso'],
   timeout: 30000,                // 30 seconds timeout
@@ -28,22 +28,6 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
   // Ensure output directory exists
   await fs.mkdir(outputPath, { recursive: true });
 
-  // Create directory structure
-  const pagesDir = path.join(outputPath, 'pages');
-  const assetsDir = path.join(outputPath, 'assets');
-  const cssDir = path.join(assetsDir, 'css');
-  const jsDir = path.join(assetsDir, 'js');
-  const imgDir = path.join(assetsDir, 'img');
-  const fontDir = path.join(assetsDir, 'fonts');
-  const otherDir = path.join(assetsDir, 'other');
-
-  await fs.mkdir(pagesDir, { recursive: true });
-  await fs.mkdir(cssDir, { recursive: true });
-  await fs.mkdir(jsDir, { recursive: true });
-  await fs.mkdir(imgDir, { recursive: true });
-  await fs.mkdir(fontDir, { recursive: true });
-  await fs.mkdir(otherDir, { recursive: true });
-
   // Initialize tracking variables
   const processedUrls = new Map(); // url -> localPath
   const pendingUrls = new Map(); // url -> { depth, localPath }
@@ -51,7 +35,7 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
   const queue = new pQueue({ concurrency: config.maxConcurrent });
 
   // Asset tracking for deduplication
-  const assetHashes = new Map(); // hash -> { path, type, url }
+  const assetHashes = new Map(); // hash -> { path, url }
   const urlToLocalMap = new Map(); // originalUrl -> localPath (for both pages and assets)
 
   let totalPages = 0;
@@ -64,12 +48,19 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
     const startUrlObj = new URL(startUrl);
     const baseDomain = startUrlObj.hostname;
 
-    // Create the base index.html path - updated to include domain name folder
-    const domainDir = path.join(pagesDir, sanitize(baseDomain));
-    await fs.mkdir(domainDir, { recursive: true });
+    // Create base output directory for this domain
+    const baseOutputDir = path.join(outputPath, sanitize(baseDomain));
+    await fs.mkdir(baseOutputDir, { recursive: true });
 
-    // For the starting URL, place it in a domain-specific folder
-    const startUrlLocal = path.join(domainDir, 'index.html');
+    // For the starting URL, determine the appropriate path
+    let startPath = startUrlObj.pathname;
+    if (startPath === '/' || startPath === '') {
+      startPath = '/index.html';
+    } else if (!path.extname(startPath)) {
+      startPath = `${startPath}/index.html`.replace(/\/+/g, '/');
+    }
+
+    const startUrlLocal = path.join(baseOutputDir, startPath.replace(/^\//, ''));
 
     // Add starting URL to queue
     pendingUrls.set(startUrl, { depth: 0, localPath: startUrlLocal });
@@ -213,23 +204,6 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
     await fs.writeFile(path.join(outputPath, 'sitemap.html'), sitemapHtml);
   }
 
-  // Helper function to determine asset type and directory based on content type
-  function getAssetTypeAndDir(contentType, urlPath) {
-    const extension = path.extname(urlPath).toLowerCase();
-
-    if (contentType.includes('text/css') || extension === '.css') {
-      return { type: 'css', dir: cssDir };
-    } else if (contentType.includes('javascript') || extension === '.js') {
-      return { type: 'js', dir: jsDir };
-    } else if (contentType.includes('image/') || ['.jpg', '.jpeg', '.png', '.gif', '.svg', '.webp', '.ico', '.bmp'].includes(extension)) {
-      return { type: 'img', dir: imgDir };
-    } else if (contentType.includes('font') || ['.woff', '.woff2', '.ttf', '.eot', '.otf'].includes(extension)) {
-      return { type: 'font', dir: fontDir };
-    } else {
-      return { type: 'other', dir: otherDir };
-    }
-  }
-
   // Helper function to get sanitized filename
   function getSanitizedFilename(url, contentType) {
     const urlObj = new URL(url);
@@ -275,7 +249,6 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
       });
 
       const contentType = response.headers['content-type'] || '';
-      const { type, dir } = getAssetTypeAndDir(contentType, assetUrl);
 
       // Calculate hash for deduplication
       const contentHash = crypto.createHash('md5').update(response.data).digest('hex');
@@ -291,31 +264,54 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
 
       // This is a new unique asset
       totalAssets++;
-      const filename = getSanitizedFilename(assetUrl, contentType);
 
-      // Ensure unique filenames within the same asset type directory
-      let uniqueFilename = filename;
+      // Create asset path based on original URL structure
+      const assetUrlObj = new URL(assetUrl);
+      const assetDomain = assetUrlObj.hostname;
+      let assetPath = assetUrlObj.pathname;
+
+      // Clean up the path
+      if (assetPath === '/' || assetPath === '') {
+        const filename = getSanitizedFilename(assetUrl, contentType);
+        assetPath = `/${filename}`;
+      } else if (!path.extname(assetPath)) {
+        const extension = mime.extension(contentType);
+        if (extension) {
+          assetPath = `${assetPath}.${extension}`;
+        }
+      }
+
+      // Create the full local path for the asset
+      const localAssetPath = path.join(
+        outputPath,
+        sanitize(assetDomain),
+        assetPath.replace(/^\//, '')
+      );
+
+      // Ensure directory exists
+      await fs.mkdir(path.dirname(localAssetPath), { recursive: true });
+
+      // Ensure unique filenames if there are collisions
+      let uniqueAssetPath = localAssetPath;
       let counter = 1;
 
-      while (await fileExists(path.join(dir, uniqueFilename))) {
-        const ext = path.extname(filename);
-        const base = path.basename(filename, ext);
-        uniqueFilename = `${base}-${counter}${ext}`;
+      while (await fileExists(uniqueAssetPath)) {
+        const ext = path.extname(localAssetPath);
+        const base = path.basename(localAssetPath, ext);
+        const dir = path.dirname(localAssetPath);
+        uniqueAssetPath = path.join(dir, `${base}-${counter}${ext}`);
         counter++;
       }
 
-      const assetPath = path.join(dir, uniqueFilename);
+      // Write the asset to disk
+      await fs.writeFile(uniqueAssetPath, response.data);
 
-      // Make sure the directory exists before writing file
-      await fs.mkdir(path.dirname(assetPath), { recursive: true });
-      await fs.writeFile(assetPath, response.data);
-
-      // Store the full path for use in HTML
-      const assetInfo = { path: assetPath, type, url: assetUrl };
+      // Store the asset info
+      const assetInfo = { path: uniqueAssetPath, url: assetUrl };
       assetHashes.set(contentHash, assetInfo);
 
       // Map this URL to its local path
-      urlToLocalMap.set(assetUrl, assetPath);
+      urlToLocalMap.set(assetUrl, uniqueAssetPath);
 
       return assetInfo;
     } catch (error) {
@@ -334,41 +330,30 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
     }
   }
 
-  // Helper function to create a sanitized local path for a URL
+  // Helper function to create a local path for a URL
   function createLocalPath(url, depth) {
     const urlObj = new URL(url);
     const hostname = sanitize(urlObj.hostname);
     let pathname = urlObj.pathname;
 
     // Clean up pathname
-    if (pathname.endsWith('/')) {
-      pathname += 'index.html';
+    if (pathname === '/' || pathname === '') {
+      pathname = '/index.html';
     } else if (!path.extname(pathname)) {
-      pathname += '.html';
+      pathname = `${pathname}/index.html`.replace(/\/+/g, '/');
     }
 
-    // Extract filename and directory path
-    const filename = path.basename(pathname);
-    const dirPath = path.dirname(pathname);
-
-    // Always include domain name in path structure to avoid collisions
-    const domainDir = path.join(pagesDir, hostname);
-
-    // Create path that includes domain and pathname
-    let finalDirPath = domainDir;
-    if (dirPath !== '/' && dirPath !== '.') {
-      // Remove leading slash if present
-      const cleanDirPath = dirPath.startsWith('/') ? dirPath.slice(1) : dirPath;
-      finalDirPath = path.join(domainDir, cleanDirPath);
-    }
-
-    // Generate the full local path
-    const localPath = path.join(finalDirPath, filename);
+    // Create path that includes domain and preserves original path structure
+    const localPath = path.join(
+      outputPath,
+      hostname,
+      pathname.replace(/^\//, '') // Remove leading slash
+    );
 
     return localPath;
   }
 
-  // Helper function to create relative path with proper "./pages/" prefix
+  // Helper function to create relative path
   function createRelativePath(fromPath, toPath) {
     let relativePath = path.relative(path.dirname(fromPath), toPath).replace(/\\/g, '/');
 
@@ -513,7 +498,7 @@ export async function downloadWebsite(startUrl, outputPath, options = {}) {
                   $(element).attr(attr, relativePath);
 
                   // For CSS, we need to process it further to handle imports and url() references
-                  if (assetInfo.type === 'css' && !processedStylesheets.has(fullUrl)) {
+                  if (contentType.includes('text/css') && !processedStylesheets.has(fullUrl)) {
                     processedStylesheets.add(fullUrl);
 
                     // Add a promise to process the CSS file
