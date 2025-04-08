@@ -22,11 +22,15 @@ export const finalizeArchive = async ({ startUrl, crawlState }) => {
     );
 
     const sitemap = await createSitemap(crawlState.outputPath, crawlState.processedUrls);
-    const zipFilePath = await createZipArchive(crawlState.outputPath);
+    // const {
+    //     zipFilePath,
+    //     downloadLink
+    // } = await createZipArchive(crawlState.outputPath);
 
     return {
         outputPath: crawlState.outputPath,
-        zipFilePath,
+        // zipFilePath,
+        // downloadLink,
         sitemap,
         stats: {
             ...crawlState.stats,
