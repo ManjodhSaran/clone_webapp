@@ -9,7 +9,7 @@ const DEFAULT_CONFIG = {
     maxPagesPerDomain: 10000,
     maxTotalPages: 50000,
     maxConcurrent: 5,
-    excludeExtensions: ['.pdf', '.zip', '.rar', '.exe', '.dmg', '.iso'],
+    excludeExtensions: ['.pdf', '.zip', '.rar', '.exe', '.dmg', '.iso', '.apk', '.tar', '.gz', '.7z', '.mp3', '.mp4', '.avi', '.mov', '.mkv'],
     timeout: 30000,
     maxAssetSize: 50 * 1024 * 1024,
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',

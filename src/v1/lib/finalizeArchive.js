@@ -21,7 +21,7 @@ export const finalizeArchive = async ({ startUrl, crawlState }) => {
         JSON.stringify(manifest, null, 2)
     );
 
-    const sitemap = await createSitemap(crawlState.outputPath, crawlState.processedUrls);
+    const sitemap = await createSitemap({ outputPath: crawlState.outputPath, processedUrls: crawlState.processedUrls });
     // const {
     //     zipFilePath,
     //     downloadLink

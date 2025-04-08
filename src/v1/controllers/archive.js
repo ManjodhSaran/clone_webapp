@@ -15,21 +15,24 @@ export const archiverWeb = async (req, res) => {
         }
 
         const startTime = Date.now();
-        const _path = `results/out-${startTime}`;
+        // const _path = `results/out-${startTime}`;
+        const _path = `results/out`;
         const outputPath = path.join(process.cwd(), _path);
         await getLocalVersion({ urls, outputPath });
-        console.log('_path', _path)
+
         const { fileName, buffer } = await createZipArchive(outputPath);
-        console.log('first', { fileName, buffer })
 
         fs.mkdir('downloads', { recursive: true });
         const zipPath = path.join(process.cwd(), 'downloads', fileName);
         fsSync.writeFileSync(zipPath, buffer);
 
+        const endTime = Date.now();
+
         return res.status(200).json({
             message: 'Download completed successfully',
             fileName,
-            downloadUrl: `/v1/api/archive/download/${fileName}`
+            duration: `${(endTime - startTime) / 1000} seconds`,
+            downloadUrl: `http://localhost:3000/v1/api/archive/download/${fileName}`
         });
 
     } catch (error) {

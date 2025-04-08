@@ -1,7 +1,7 @@
 import path from 'path';
 import fs from 'fs/promises';
 
-export const createSitemap = async (outputPath, processedUrls) => {
+export const createSitemap = async ({ outputPath, processedUrls }) => {
   let sitemapHtml = `
   <!DOCTYPE html>
   <html>

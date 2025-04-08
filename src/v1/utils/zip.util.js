@@ -12,7 +12,7 @@ const createZipArchive = async (sourceDir) => {
         }
 
         zip.addLocalFolder(sourceDir);
-        zip.writeZip(path.join(sourceDir, `${path.basename(sourceDir)}.zip`));
+        // zip.writeZip(path.join(sourceDir, `${path.basename(sourceDir)}.zip`));
 
         return {
             fileName: `${path.basename(sourceDir)}.zip`,
