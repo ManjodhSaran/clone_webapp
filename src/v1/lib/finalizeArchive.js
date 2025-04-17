@@ -1,12 +1,10 @@
 import fs from 'fs/promises';
 import path from 'path';
-import createZipArchive from '../utils/zip.util.js';
 import { createSitemap } from './createSitemap.js';
 
 
-export const finalizeArchive = async ({ startUrl, crawlState }) => {
+export const finalizeArchive = async ({ crawlState, sitemap: sitemapObject, index }) => {
     const manifest = {
-        originalUrl: startUrl,
         dateArchived: new Date().toISOString(),
         stats: {
             ...crawlState.stats,
@@ -21,16 +19,10 @@ export const finalizeArchive = async ({ startUrl, crawlState }) => {
         JSON.stringify(manifest, null, 2)
     );
 
-    const sitemap = await createSitemap({ outputPath: crawlState.outputPath, processedUrls: crawlState.processedUrls });
-    // const {
-    //     zipFilePath,
-    //     downloadLink
-    // } = await createZipArchive(crawlState.outputPath);
+    const sitemap = await createSitemap({ outputPath: crawlState.outputPath, processedUrls: crawlState.processedUrls, sitemap: sitemapObject });
 
     return {
         outputPath: crawlState.outputPath,
-        // zipFilePath,
-        // downloadLink,
         sitemap,
         stats: {
             ...crawlState.stats,

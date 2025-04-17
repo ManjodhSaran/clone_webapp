@@ -43,7 +43,7 @@ const initializeCrawlState = (config, outputPath) => ({
     outputPath
 });
 
-export const downloadWebsite = async ({ startUrl, outputPath, options = {}, token }) => {
+export const downloadWebsite = async ({ startUrl, outputPath, options = {}, token, sitemap, index }) => {
 
     const config = { ...DEFAULT_CONFIG, ...options, assetAuthHeaders: getAuthHeaders(token) };
     const crawlState = initializeCrawlState(config, outputPath);
@@ -53,7 +53,7 @@ export const downloadWebsite = async ({ startUrl, outputPath, options = {}, toke
 
         crawlState.pendingUrls.set(startUrl, { depth: 0, localPath: startUrlLocal });
         await processPendingUrls({ crawlState, baseOutputDir });
-        const result = await finalizeArchive({ startUrl, crawlState });
+        const result = await finalizeArchive({ startUrl, crawlState, sitemap, index });
         logResults(result);
 
         return result;
