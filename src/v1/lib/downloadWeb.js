@@ -17,12 +17,6 @@ const DEFAULT_CONFIG = {
 };
 
 
-const getAuthHeaders = (token) => ({
-    'Authorization': 'Bearer ' + token,
-    'Content-Type': 'application/json',
-    'Accept': 'application/json',
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-});
 
 
 
@@ -45,18 +39,14 @@ const initializeCrawlState = (config, outputPath) => ({
 
 export const downloadWebsite = async ({ startUrl, outputPath, options = {}, token, sitemap, index }) => {
 
-    const config = { ...DEFAULT_CONFIG, ...options, assetAuthHeaders: getAuthHeaders(token) };
-    const crawlState = initializeCrawlState(config, outputPath);
+
 
     try {
         const { baseOutputDir, startUrlLocal } = await prepareStartUrl({ startUrl, outputPath });
 
         crawlState.pendingUrls.set(startUrl, { depth: 0, localPath: startUrlLocal });
         await processPendingUrls({ crawlState, baseOutputDir });
-        const result = await finalizeArchive({ startUrl, crawlState, sitemap, index });
-        logResults(result);
 
-        return result;
     } catch (error) {
         console.error(`Failed to download website: ${error.message}`);
         throw error;

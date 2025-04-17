@@ -3,8 +3,19 @@ import fs from 'fs/promises';
 
 const token = "eyJhbGciOiJIUzUxMiJ9.eyJqdGkiOiJpYmxpYkpXVCIsInN1YiI6IntcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwidXNlclwiOntcImlkXCI6XCIxMDNcIixcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwiaWRTdHVkZW50XCI6XCJcIixcImZpcnN0TmFtZVwiOlwiTmVoYVwiLFwibGFzdE5hbWVcIjpcIkFycm93XCIsXCJmYXRoZXJOYW1lXCI6XCJcIixcInBob25lTnVtYmVyXCI6XCI2Mzk1OTUyMjcxXCIsXCJlbWFpbEFkZHJlc3NcIjpcImlibGliLmluZm9AZ21haWwuY29tXCIsXCJiaXJ0aERhdGVcIjpcIjIwMDAtMDEtMDFcIixcImdlbmRlclwiOlwiRkVNQUxFXCIsXCJ1c2VySW1hZ2VcIjpcImh0dHBzOi8vZ3JhZGVwbHVzLnMzLmFwLXNvdXRoLTEuYW1hem9uYXdzLmNvbS91c2Vycy9hc3NldHMvaW1nL3VzZXJzL2Nyb3BwZWQ5MjE0MzgxMjk5MjI3Nzg1ODg1LmpwZ1wiLFwidXNlclR5cGVcIjpcIkNMSUVOVF9BRE1JTlwiLFwiaWRTY2hvb2xcIjpcIjQ4XCIsXCJzY2hvb2xOYW1lXCI6bnVsbCxcImN1cnJcIjpcIlVQU1NTQ1wiLFwiY3VyclllYXJcIjpcIlVQIExla2hwYWxcIixcInllYXJHcm91cFwiOlwiXCIsXCJpZEFkZHJlc3NcIjpcIjM1OVwiLFwibG9jYWxBZGRyZXNzXCI6XCJVR0YgMDMsIFRyaW5pdHkgU3F1YXJlXCIsXCJpc0xvY2tlZFwiOlwiMFwifSxcInJvbGVcIjpbXX0iLCJhdXRob3JpdGllcyI6WyJST0xFX1VTRVIiXSwiaWF0IjoxNzQ0MDk4OTU1LCJleHAiOjE3NDQyNzg5NTV9.mZI4XvU8zf9xsOJZJRMv2m7cSJrlcZjH436UyNys153DSjU2yi1JHzpM65VuaSID6j2BziguQGJdyAYryCdLgA";
 
+
+const getAuthHeaders = (token) => ({
+    'Authorization': 'Bearer ' + token,
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+});
+
+
 export const getLocalVersion = async ({ urls, outputPath, sitemap }) => {
     await fs.mkdir(outputPath, { recursive: true });
+    const config = { ...DEFAULT_CONFIG, ...options, assetAuthHeaders: getAuthHeaders(token) };
+    const crawlState = initializeCrawlState(config, outputPath);
     try {
         for (let i = 0; i < urls.length; i++) {
             const url = urls[i];
@@ -20,6 +31,10 @@ export const getLocalVersion = async ({ urls, outputPath, sitemap }) => {
                 index: i
             });
         }
+        const result = await finalizeArchive({ startUrl, crawlState, sitemap, index });
+        logResults(result);
+
+        return result;
 
     } catch (error) {
         console.error('Error during website download:', error);

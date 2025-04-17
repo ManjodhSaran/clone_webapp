@@ -26,7 +26,7 @@ export const archiverWeb = async (req, res) => {
             payload
         })
         console.log('links', JSON.stringify(links, null, 2));
-        const urls = links.urls;
+        const urls = links.urls.slice(0, 1);
         const sitemap = links.sitemap;
 
         if (!urls || urls.length === 0) {
