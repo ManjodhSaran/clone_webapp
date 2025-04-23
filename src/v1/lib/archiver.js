@@ -1,8 +1,8 @@
 import { downloadWebsite } from "./downloadWeb.js";
 import fs from 'fs/promises';
-
-const token = "eyJhbGciOiJIUzUxMiJ9.eyJqdGkiOiJpYmxpYkpXVCIsInN1YiI6IntcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwidXNlclwiOntcImlkXCI6XCIxMDNcIixcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwiaWRTdHVkZW50XCI6XCJcIixcImZpcnN0TmFtZVwiOlwiTmVoYVwiLFwibGFzdE5hbWVcIjpcIkFycm93XCIsXCJmYXRoZXJOYW1lXCI6XCJcIixcInBob25lTnVtYmVyXCI6XCI2Mzk1OTUyMjcxXCIsXCJlbWFpbEFkZHJlc3NcIjpcImlibGliLmluZm9AZ21haWwuY29tXCIsXCJiaXJ0aERhdGVcIjpcIjIwMDAtMDEtMDFcIixcImdlbmRlclwiOlwiRkVNQUxFXCIsXCJ1c2VySW1hZ2VcIjpcImh0dHBzOi8vZ3JhZGVwbHVzLnMzLmFwLXNvdXRoLTEuYW1hem9uYXdzLmNvbS91c2Vycy9hc3NldHMvaW1nL3VzZXJzL2Nyb3BwZWQ5MjE0MzgxMjk5MjI3Nzg1ODg1LmpwZ1wiLFwidXNlclR5cGVcIjpcIkNMSUVOVF9BRE1JTlwiLFwiaWRTY2hvb2xcIjpcIjQ4XCIsXCJzY2hvb2xOYW1lXCI6bnVsbCxcImN1cnJcIjpcIlVQU1NTQ1wiLFwiY3VyclllYXJcIjpcIlVQIExla2hwYWxcIixcInllYXJHcm91cFwiOlwiXCIsXCJpZEFkZHJlc3NcIjpcIjM1OVwiLFwibG9jYWxBZGRyZXNzXCI6XCJVR0YgMDMsIFRyaW5pdHkgU3F1YXJlXCIsXCJpc0xvY2tlZFwiOlwiMFwifSxcInJvbGVcIjpbXX0iLCJhdXRob3JpdGllcyI6WyJST0xFX1VTRVIiXSwiaWF0IjoxNzQ0MDk4OTU1LCJleHAiOjE3NDQyNzg5NTV9.mZI4XvU8zf9xsOJZJRMv2m7cSJrlcZjH436UyNys153DSjU2yi1JHzpM65VuaSID6j2BziguQGJdyAYryCdLgA";
-
+import pQueue from 'p-queue';
+import { finalizeArchive } from "./finalizeArchive.js";
+import { logResults } from "../utils/log.util.js";
 
 const getAuthHeaders = (token) => ({
     'Authorization': 'Bearer ' + token,
@@ -11,9 +11,42 @@ const getAuthHeaders = (token) => ({
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
 });
 
+const DEFAULT_CONFIG = {
+    maxDepth: 3,
+    maxPagesPerDomain: 10000,
+    maxTotalPages: 50000,
+    maxConcurrent: 5,
+    excludeExtensions: ['.pdf', '.zip', '.rar', '.exe', '.dmg', '.iso', '.apk', '.tar', '.gz', '.7z', '.mp3', '.mp4', '.avi', '.mov', '.mkv'],
+    timeout: 30000,
+    maxAssetSize: 50 * 1024 * 1024,
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+    sameDomainOnly: false
+};
 
-export const getLocalVersion = async ({ urls, outputPath, sitemap }) => {
+const initializeCrawlState = (config, outputPath) => ({
+    processedUrls: new Map(),
+    pendingUrls: new Map(),
+    domainCounters: new Map(),
+    queue: new pQueue({ concurrency: config.maxConcurrent }),
+    assetHashes: new Map(),
+    urlToLocalMap: new Map(),
+    stats: {
+        totalPages: 0,
+        failedPages: 0,
+        totalAssets: 0,
+        duplicateAssets: 0
+    },
+    config,
+    outputPath
+});
+
+
+export const getLocalVersion = async ({ urls, outputPath, sitemap, token }) => {
     await fs.mkdir(outputPath, { recursive: true });
+    const options = {
+        maxDepth: 2,
+        sameDomainOnly: true,
+    }
     const config = { ...DEFAULT_CONFIG, ...options, assetAuthHeaders: getAuthHeaders(token) };
     const crawlState = initializeCrawlState(config, outputPath);
     try {
@@ -22,16 +55,10 @@ export const getLocalVersion = async ({ urls, outputPath, sitemap }) => {
             await downloadWebsite({
                 startUrl: url,
                 outputPath,
-                options: {
-                    maxDepth: 2,
-                    sameDomainOnly: true,
-                },
-                sitemap,
-                token,
-                index: i
+                crawlState
             });
         }
-        const result = await finalizeArchive({ startUrl, crawlState, sitemap, index });
+        const result = await finalizeArchive({ crawlState, sitemap });
         logResults(result);
 
         return result;
@@ -41,19 +68,3 @@ export const getLocalVersion = async ({ urls, outputPath, sitemap }) => {
         throw error;
     }
 };
-
-// const urls = [
-//     'https://www.iblib.com/user/html/topic/ENENT10021',
-//     'https://www.iblib.com/user/html/topic/ENENT10022',
-//     'https://www.iblib.com/user/html/topic/ENENT10023',
-//     'https://www.iblib.com/user/html/topic/ENENT10024',
-//     'https://www.iblib.com/user/html/topic/ENENT10025'
-// ];
-
-// getLocalVersion({ urls })
-//   .then(() => {
-//     console.log('Download completed successfully.');
-//   })
-//   .catch((error) => {
-//     console.error('Error during download:', error);
-//   });

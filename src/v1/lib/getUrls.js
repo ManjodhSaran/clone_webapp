@@ -3,7 +3,7 @@
 const chapters_base_url = "https://www.iblib.com/api/study/chapters";
 const html_base_url = "https://www.iblib.com/user/html/topic/";
 
-export const getUrlsFromRequest = async ({ name, token, payload, }) => {
+export const getUrlsFromRequest = async ({ token, payload, }) => {
     try {
         const response = await fetch(chapters_base_url, {
             method: 'POST',
@@ -13,7 +13,7 @@ export const getUrlsFromRequest = async ({ name, token, payload, }) => {
             },
             body: JSON.stringify(payload)
         });
-
+        console.log(response)
         if (!response.ok) {
             throw new Error('Failed to fetch data');
         }

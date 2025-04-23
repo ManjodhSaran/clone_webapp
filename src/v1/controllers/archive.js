@@ -5,8 +5,7 @@ import { getLocalVersion } from '../lib/archiver.js';
 import createZipArchive from '../utils/zip.util.js';
 import { getUrlsFromRequest } from '../lib/getUrls.js';
 
-const token = "eyJhbGciOiJIUzUxMiJ9.eyJqdGkiOiJpYmxpYkpXVCIsInN1YiI6IntcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwidXNlclwiOntcImlkXCI6XCIxMDNcIixcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwiaWRTdHVkZW50XCI6XCJcIixcImZpcnN0TmFtZVwiOlwiTmVoYVwiLFwibGFzdE5hbWVcIjpcIkFycm93XCIsXCJmYXRoZXJOYW1lXCI6XCJcIixcInBob25lTnVtYmVyXCI6XCI2Mzk1OTUyMjcxXCIsXCJlbWFpbEFkZHJlc3NcIjpcImlibGliLmluZm9AZ21haWwuY29tXCIsXCJiaXJ0aERhdGVcIjpcIjIwMDAtMDEtMDFcIixcImdlbmRlclwiOlwiRkVNQUxFXCIsXCJ1c2VySW1hZ2VcIjpcImh0dHBzOi8vZ3JhZGVwbHVzLnMzLmFwLXNvdXRoLTEuYW1hem9uYXdzLmNvbS91c2Vycy9hc3NldHMvaW1nL3VzZXJzL2Nyb3BwZWQ5MjE0MzgxMjk5MjI3Nzg1ODg1LmpwZ1wiLFwidXNlclR5cGVcIjpcIkNMSUVOVF9BRE1JTlwiLFwiaWRTY2hvb2xcIjpcIjQ4XCIsXCJzY2hvb2xOYW1lXCI6XCJBcnJvdyBJbnRlciBDb2xsZWdlXCIsXCJjdXJyXCI6XCJVUC1CT0FSRFwiLFwiY3VyclllYXJcIjpcIkNMQVNTLVZJXCIsXCJ5ZWFyR3JvdXBcIjpcIlwiLFwiaWRBZGRyZXNzXCI6XCIzNTlcIixcImxvY2FsQWRkcmVzc1wiOlwiVUdGIDAzLCBUcmluaXR5IFNxdWFyZVwiLFwiaXNMb2NrZWRcIjpcIjBcIn0sXCJyb2xlXCI6W119IiwiYXV0aG9yaXRpZXMiOlsiUk9MRV9VU0VSIl0sImlhdCI6MTc0NDg4ODk0OCwiZXhwIjoxNzQ0ODk3OTQ4fQ._OKMHbIk0QS-JOjMPKBIlz4lD-_JpxO-V2z-ogpwaBO-aWfZ48_vJEJHUNvYKBcCsno88iXKrg-T-O_Qn_sjxQ"
-
+const token = "eyJhbGciOiJIUzUxMiJ9.eyJqdGkiOiJpYmxpYkpXVCIsInN1YiI6IntcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwidXNlclwiOntcImlkXCI6XCIxMDNcIixcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwiaWRTdHVkZW50XCI6XCJcIixcImZpcnN0TmFtZVwiOlwiTmVoYVwiLFwibGFzdE5hbWVcIjpcIkFycm93XCIsXCJmYXRoZXJOYW1lXCI6XCJcIixcInBob25lTnVtYmVyXCI6XCI2Mzk1OTUyMjcxXCIsXCJlbWFpbEFkZHJlc3NcIjpcImlibGliLmluZm9AZ21haWwuY29tXCIsXCJiaXJ0aERhdGVcIjpcIjIwMDAtMDEtMDFcIixcImdlbmRlclwiOlwiRkVNQUxFXCIsXCJ1c2VySW1hZ2VcIjpcImh0dHBzOi8vZ3JhZGVwbHVzLnMzLmFwLXNvdXRoLTEuYW1hem9uYXdzLmNvbS91c2Vycy9hc3NldHMvaW1nL3VzZXJzL2Nyb3BwZWQ5MjE0MzgxMjk5MjI3Nzg1ODg1LmpwZ1wiLFwidXNlclR5cGVcIjpcIkNMSUVOVF9BRE1JTlwiLFwiaWRTY2hvb2xcIjpcIjQ4XCIsXCJzY2hvb2xOYW1lXCI6XCJBcnJvdyBJbnRlciBDb2xsZWdlXCIsXCJjdXJyXCI6XCJDQlNFXCIsXCJjdXJyWWVhclwiOlwiQ0xBU1MtWFwiLFwieWVhckdyb3VwXCI6XCJcIixcImlkQWRkcmVzc1wiOlwiMzU5XCIsXCJsb2NhbEFkZHJlc3NcIjpcIlVHRiAwMywgVHJpbml0eSBTcXVhcmVcIixcImlzTG9ja2VkXCI6XCIwXCJ9LFwicm9sZVwiOltdfSIsImF1dGhvcml0aWVzIjpbIlJPTEVfVVNFUiJdLCJpYXQiOjE3NDU0MTg2OTMsImV4cCI6MTc0NTQyNzY5M30.UFpNCqgshVGsgno1mhPmTWyNBAUpV-TBRE0EJ_-DsCNrq87A3zbYAzhON2K4dnt_hzd41a_LaTbuulYMPe-yEw"
 export const archiverWeb = async (req, res) => {
 
     const { name, payload } = req.body;
@@ -18,15 +17,14 @@ export const archiverWeb = async (req, res) => {
         });
     }
 
-
     try {
         const links = await getUrlsFromRequest({
             name,
             token,
             payload
         })
-        console.log('links', JSON.stringify(links, null, 2));
-        const urls = links.urls.slice(0, 1);
+
+        const urls = links.urls
         const sitemap = links.sitemap;
 
         if (!urls || urls.length === 0) {
@@ -37,10 +35,10 @@ export const archiverWeb = async (req, res) => {
         }
 
         const startTime = Date.now();
-        // const _path = `results/out-${startTime}`;
+
         const _path = `results/${name}`;
         const outputPath = path.join(process.cwd(), _path);
-        await getLocalVersion({ urls, outputPath, sitemap });
+        await getLocalVersion({ urls, outputPath, sitemap, token });
 
         const { fileName, buffer } = await createZipArchive(outputPath);
 
@@ -75,7 +73,6 @@ export const downloadArchive = async (req, res) => {
     const { filename } = req.params;
 
     const filePath = path.join(process.cwd(), 'downloads', filename);
-    console.log('filePath', filePath)
 
     if (fsSync.existsSync(filePath)) {
         res.download(filePath, (err) => {

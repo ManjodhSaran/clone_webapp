@@ -3,7 +3,7 @@ import path from 'path';
 import { createSitemap } from './createSitemap.js';
 
 
-export const finalizeArchive = async ({ crawlState, sitemap: sitemapObject, index }) => {
+export const finalizeArchive = async ({ crawlState, sitemap: sitemapObject }) => {
     const manifest = {
         dateArchived: new Date().toISOString(),
         stats: {
