@@ -1,4 +1,6 @@
 
+import fsSync from 'fs';
+import path from 'path';
 
 const subjects_base_url = ({ curr, currYear }) => `https://www.iblib.com/api/study/subjects?curr=${curr}&currYear=${currYear}`
 const chapters_base_url = "https://www.iblib.com/api/study/chapters";
@@ -27,6 +29,45 @@ export const getSubjectsFromRequest = async ({ token, curr, currYear }) => {
         return [];
     }
 };
+
+const uploadUrl = 'https://test.iblib.com/api/uploadfile';
+export const uploadToServer = async ({ name, token }) => {
+
+
+    const filePath = path.join(process.cwd(), 'downloads', `${name}.zip`,);
+
+    const body = {
+        module: 'iMyCurrSubject',
+        fileName: name,
+    }
+
+    const formData = new FormData();
+    formData.append('file', fsSync.createReadStream(filePath));
+    formData.append('module', body.module);
+    formData.append('fileName', name);
+    console.log("Uploading file:", filePath);
+    try {
+        const response = await fetch(uploadUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': token,
+            },
+            body: formData
+        });
+        console.log("Response:", response);
+        if (!response.ok) {
+            throw new Error('Failed to upload file');
+        }
+        const data = await response.json();
+        return data;
+        // console.log(data);
+    }
+    catch (error) {
+        console.error("Error:", error);
+        return null;
+    }
+}
+
 
 export const getUrlsFromRequest = async ({ token, payload, }) => {
     try {

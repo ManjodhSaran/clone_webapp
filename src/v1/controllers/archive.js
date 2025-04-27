@@ -3,20 +3,16 @@ import fsSync from 'fs';
 import path from 'path';
 import { getLocalVersion } from '../lib/archiver.js';
 import createZipArchive from '../utils/zip.util.js';
-import { getSubjectsFromRequest, getUrlsFromRequest } from '../lib/getUrls.js';
+import { getSubjectsFromRequest, getUrlsFromRequest, uploadToServer } from '../lib/getUrls.js';
 
 const token = "eyJhbGciOiJIUzUxMiJ9.eyJqdGkiOiJpYmxpYkpXVCIsInN1YiI6IntcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwidXNlclwiOntcImlkXCI6XCIxMDNcIixcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwiaWRTdHVkZW50XCI6XCJcIixcImZpcnN0TmFtZVwiOlwiTmVoYVwiLFwibGFzdE5hbWVcIjpcIkFycm93XCIsXCJmYXRoZXJOYW1lXCI6XCJcIixcInBob25lTnVtYmVyXCI6XCI2Mzk1OTUyMjcxXCIsXCJlbWFpbEFkZHJlc3NcIjpcImlibGliLmluZm9AZ21haWwuY29tXCIsXCJiaXJ0aERhdGVcIjpcIjIwMDAtMDEtMDFcIixcImdlbmRlclwiOlwiRkVNQUxFXCIsXCJ1c2VySW1hZ2VcIjpcImh0dHBzOi8vZ3JhZGVwbHVzLnMzLmFwLXNvdXRoLTEuYW1hem9uYXdzLmNvbS91c2Vycy9hc3NldHMvaW1nL3VzZXJzL2Nyb3BwZWQ5MjE0MzgxMjk5MjI3Nzg1ODg1LmpwZ1wiLFwidXNlclR5cGVcIjpcIkNMSUVOVF9BRE1JTlwiLFwiaWRTY2hvb2xcIjpcIjQ4XCIsXCJzY2hvb2xOYW1lXCI6XCJBcnJvdyBJbnRlciBDb2xsZWdlXCIsXCJjdXJyXCI6XCJDQlNFXCIsXCJjdXJyWWVhclwiOlwiQ0xBU1MtWElJXCIsXCJ5ZWFyR3JvdXBcIjpcIlwiLFwiaWRBZGRyZXNzXCI6XCIzNTlcIixcImxvY2FsQWRkcmVzc1wiOlwiVUdGIDAzLCBUcmluaXR5IFNxdWFyZVwiLFwiaXNMb2NrZWRcIjpcIjBcIn0sXCJyb2xlXCI6W119IiwiYXV0aG9yaXRpZXMiOlsiUk9MRV9VU0VSIl0sImlhdCI6MTc0NTcyMzc5OCwiZXhwIjoxNzQ1NzMyNzk4fQ.LIdTJ7qhS0EH6XoIwHCTaJbpiGvNICpXNlsCxvXa9s40n9TPr_c2Lwu3QYl-N9BDDTFXZTV1cs203XIIwJhezg"
 
 const getChapters = async ({ name, payload, token }) => {
 
     try {
-        const links = await getUrlsFromRequest({
-            name,
-            token,
-            payload
-        })
+        const links = await getUrlsFromRequest({ name, token, payload });
 
-        const urls = links.urls
+        const urls = links.urls;
         const sitemap = links.sitemap;
 
         if (!urls || urls.length === 0) {
@@ -34,7 +30,7 @@ const getChapters = async ({ name, payload, token }) => {
 
         const { fileName, buffer } = await createZipArchive(outputPath);
 
-        fs.mkdir('downloads', { recursive: true });
+        await fs.mkdir('downloads', { recursive: true });
         const zipPath = path.join(process.cwd(), 'downloads', fileName);
         fsSync.writeFileSync(zipPath, buffer);
 
@@ -65,9 +61,13 @@ export const archiverWeb = async (req, res) => {
         await subjects.forEach(async (item) => {
             const { curriculum, year, subject } = item;
 
-            const name = `${curriculum}-${year}-${subject}`;
+            const name = `${curriculum}_${year}_${subject}`;
             const payload = { curriculum, year, subject }
+            console.log(`Downloading ${name}...`);
             const chapters = await getChapters({ name, payload, token });
+            console.log(`Uploading ${name}...`);
+            uploadToServer({ name, token })
+
         })
 
         res.status(200).json({
