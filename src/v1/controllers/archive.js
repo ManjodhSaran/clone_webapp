@@ -3,19 +3,11 @@ import fsSync from 'fs';
 import path from 'path';
 import { getLocalVersion } from '../lib/archiver.js';
 import createZipArchive from '../utils/zip.util.js';
-import { getUrlsFromRequest } from '../lib/getUrls.js';
+import { getSubjectsFromRequest, getUrlsFromRequest } from '../lib/getUrls.js';
 
-const token = "eyJhbGciOiJIUzUxMiJ9.eyJqdGkiOiJpYmxpYkpXVCIsInN1YiI6IntcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwidXNlclwiOntcImlkXCI6XCIxMDNcIixcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwiaWRTdHVkZW50XCI6XCJcIixcImZpcnN0TmFtZVwiOlwiTmVoYVwiLFwibGFzdE5hbWVcIjpcIkFycm93XCIsXCJmYXRoZXJOYW1lXCI6XCJcIixcInBob25lTnVtYmVyXCI6XCI2Mzk1OTUyMjcxXCIsXCJlbWFpbEFkZHJlc3NcIjpcImlibGliLmluZm9AZ21haWwuY29tXCIsXCJiaXJ0aERhdGVcIjpcIjIwMDAtMDEtMDFcIixcImdlbmRlclwiOlwiRkVNQUxFXCIsXCJ1c2VySW1hZ2VcIjpcImh0dHBzOi8vZ3JhZGVwbHVzLnMzLmFwLXNvdXRoLTEuYW1hem9uYXdzLmNvbS91c2Vycy9hc3NldHMvaW1nL3VzZXJzL2Nyb3BwZWQ5MjE0MzgxMjk5MjI3Nzg1ODg1LmpwZ1wiLFwidXNlclR5cGVcIjpcIkNMSUVOVF9BRE1JTlwiLFwiaWRTY2hvb2xcIjpcIjQ4XCIsXCJzY2hvb2xOYW1lXCI6XCJBcnJvdyBJbnRlciBDb2xsZWdlXCIsXCJjdXJyXCI6XCJDQlNFXCIsXCJjdXJyWWVhclwiOlwiQ0xBU1MtWFwiLFwieWVhckdyb3VwXCI6XCJcIixcImlkQWRkcmVzc1wiOlwiMzU5XCIsXCJsb2NhbEFkZHJlc3NcIjpcIlVHRiAwMywgVHJpbml0eSBTcXVhcmVcIixcImlzTG9ja2VkXCI6XCIwXCJ9LFwicm9sZVwiOltdfSIsImF1dGhvcml0aWVzIjpbIlJPTEVfVVNFUiJdLCJpYXQiOjE3NDU0MTg2OTMsImV4cCI6MTc0NTQyNzY5M30.UFpNCqgshVGsgno1mhPmTWyNBAUpV-TBRE0EJ_-DsCNrq87A3zbYAzhON2K4dnt_hzd41a_LaTbuulYMPe-yEw"
-export const archiverWeb = async (req, res) => {
+const token = "eyJhbGciOiJIUzUxMiJ9.eyJqdGkiOiJpYmxpYkpXVCIsInN1YiI6IntcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwidXNlclwiOntcImlkXCI6XCIxMDNcIixcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwiaWRTdHVkZW50XCI6XCJcIixcImZpcnN0TmFtZVwiOlwiTmVoYVwiLFwibGFzdE5hbWVcIjpcIkFycm93XCIsXCJmYXRoZXJOYW1lXCI6XCJcIixcInBob25lTnVtYmVyXCI6XCI2Mzk1OTUyMjcxXCIsXCJlbWFpbEFkZHJlc3NcIjpcImlibGliLmluZm9AZ21haWwuY29tXCIsXCJiaXJ0aERhdGVcIjpcIjIwMDAtMDEtMDFcIixcImdlbmRlclwiOlwiRkVNQUxFXCIsXCJ1c2VySW1hZ2VcIjpcImh0dHBzOi8vZ3JhZGVwbHVzLnMzLmFwLXNvdXRoLTEuYW1hem9uYXdzLmNvbS91c2Vycy9hc3NldHMvaW1nL3VzZXJzL2Nyb3BwZWQ5MjE0MzgxMjk5MjI3Nzg1ODg1LmpwZ1wiLFwidXNlclR5cGVcIjpcIkNMSUVOVF9BRE1JTlwiLFwiaWRTY2hvb2xcIjpcIjQ4XCIsXCJzY2hvb2xOYW1lXCI6XCJBcnJvdyBJbnRlciBDb2xsZWdlXCIsXCJjdXJyXCI6XCJDQlNFXCIsXCJjdXJyWWVhclwiOlwiQ0xBU1MtWElJXCIsXCJ5ZWFyR3JvdXBcIjpcIlwiLFwiaWRBZGRyZXNzXCI6XCIzNTlcIixcImxvY2FsQWRkcmVzc1wiOlwiVUdGIDAzLCBUcmluaXR5IFNxdWFyZVwiLFwiaXNMb2NrZWRcIjpcIjBcIn0sXCJyb2xlXCI6W119IiwiYXV0aG9yaXRpZXMiOlsiUk9MRV9VU0VSIl0sImlhdCI6MTc0NTcyMzc5OCwiZXhwIjoxNzQ1NzMyNzk4fQ.LIdTJ7qhS0EH6XoIwHCTaJbpiGvNICpXNlsCxvXa9s40n9TPr_c2Lwu3QYl-N9BDDTFXZTV1cs203XIIwJhezg"
 
-    const { name, payload } = req.body;
-
-    if (!name || !payload) {
-        return res.status(400).json({
-            error: 'Name and payload are required',
-            details: 'Please provide a name and payload in the request body'
-        });
-    }
+const getChapters = async ({ name, payload, token }) => {
 
     try {
         const links = await getUrlsFromRequest({
@@ -48,10 +40,7 @@ export const archiverWeb = async (req, res) => {
 
         const endTime = Date.now();
 
-        return res.status(200).json({
-            success: true,
-            status: 200,
-
+        console.log({
             message: 'Download completed successfully',
             fileName,
             duration: `${(endTime - startTime) / 1000} seconds`,
@@ -65,6 +54,32 @@ export const archiverWeb = async (req, res) => {
             details: error.message
         });
     }
+};
+
+export const archiverWeb = async (req, res) => {
+
+    try {
+        const { curr, currYear } = req.body;
+
+        const subjects = await getSubjectsFromRequest({ token, curr, currYear });
+        await subjects.forEach(async (item) => {
+            const { curriculum, year, subject } = item;
+
+            const name = `${curriculum}-${year}-${subject}`;
+            const payload = { curriculum, year, subject }
+            const chapters = await getChapters({ name, payload, token });
+        })
+
+        res.status(200).json({
+            message: 'Download started',
+            details: 'The download process has started. You will receive a notification once it is completed.',
+            subjects
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+    }
+
 };
 
 

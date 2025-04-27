@@ -1,10 +1,36 @@
 
 
+const subjects_base_url = ({ curr, currYear }) => `https://www.iblib.com/api/study/subjects?curr=${curr}&currYear=${currYear}`
 const chapters_base_url = "https://www.iblib.com/api/study/chapters";
 const html_base_url = "https://www.iblib.com/user/html/topic/";
 
+
+export const getSubjectsFromRequest = async ({ token, curr, currYear }) => {
+    try {
+        const response = await fetch(subjects_base_url({ curr, currYear }), {
+            method: 'GET',
+            headers: {
+                'Authorization': token
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Failed to fetch data');
+        }
+
+        const data = await response.json();
+
+        return data;
+
+    } catch (error) {
+        console.error("Error:", error);
+        return [];
+    }
+};
+
 export const getUrlsFromRequest = async ({ token, payload, }) => {
     try {
+
         const response = await fetch(chapters_base_url, {
             method: 'POST',
             headers: {
@@ -13,7 +39,8 @@ export const getUrlsFromRequest = async ({ token, payload, }) => {
             },
             body: JSON.stringify(payload)
         });
-        console.log(response)
+
+
         if (!response.ok) {
             throw new Error('Failed to fetch data');
         }
