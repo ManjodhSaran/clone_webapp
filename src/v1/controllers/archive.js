@@ -5,7 +5,7 @@ import { getLocalVersion } from '../lib/archiver.js';
 import createZipArchive from '../utils/zip.util.js';
 import { getSubjectsFromRequest, getUrlsFromRequest, uploadToServer } from '../lib/getUrls.js';
 
-// const token = "eyJhbGciOiJIUzUxMiJ9.eyJqdGkiOiJpYmxpYkpXVCIsInN1YiI6IntcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwidXNlclwiOntcImlkXCI6XCIxMDNcIixcImxvZ2luTmFtZVwiOlwibmVoYS5hcnJvd1wiLFwiaWRTdHVkZW50XCI6XCJcIixcImZpcnN0TmFtZVwiOlwiTmVoYVwiLFwibGFzdE5hbWVcIjpcIkFycm93XCIsXCJmYXRoZXJOYW1lXCI6XCJcIixcInBob25lTnVtYmVyXCI6XCI2Mzk1OTUyMjcxXCIsXCJlbWFpbEFkZHJlc3NcIjpcImlibGliLmluZm9AZ21haWwuY29tXCIsXCJiaXJ0aERhdGVcIjpcIjIwMDAtMDEtMDFcIixcImdlbmRlclwiOlwiRkVNQUxFXCIsXCJ1c2VySW1hZ2VcIjpcImh0dHBzOi8vZ3JhZGVwbHVzLnMzLmFwLXNvdXRoLTEuYW1hem9uYXdzLmNvbS91c2Vycy9hc3NldHMvaW1nL3VzZXJzL2Nyb3BwZWQ5MjE0MzgxMjk5MjI3Nzg1ODg1LmpwZ1wiLFwidXNlclR5cGVcIjpcIkNMSUVOVF9BRE1JTlwiLFwiaWRTY2hvb2xcIjpcIjQ4XCIsXCJzY2hvb2xOYW1lXCI6XCJBcnJvdyBJbnRlciBDb2xsZWdlXCIsXCJjdXJyXCI6XCJUZWFjaGluZ1wiLFwiY3VyclllYXJcIjpcIkJQU0MtUEdUXCIsXCJ5ZWFyR3JvdXBcIjpcIlwiLFwiaWRBZGRyZXNzXCI6XCIzNTlcIixcImxvY2FsQWRkcmVzc1wiOlwiVUdGIDAzLCBUcmluaXR5IFNxdWFyZVwiLFwiaXNMb2NrZWRcIjpcIjBcIn0sXCJyb2xlXCI6W119IiwiYXV0aG9yaXRpZXMiOlsiUk9MRV9VU0VSIl0sImlhdCI6MTc0NTg1NjY2MCwiZXhwIjoxNzQ1ODY1NjYwfQ.UhemWuaM7JVAHn6ExJNxFc4KAPG1nltZr8TcYpUkZeECJauoMgaYffIyYbIWH0E-mQS3tsKQwLC9RDpotud3_Q"
+
 const getChapters = async ({ name, payload, token }) => {
 
     try {
@@ -52,35 +52,38 @@ const getChapters = async ({ name, payload, token }) => {
 };
 
 export const archiverWeb = async (req, res) => {
-
     try {
         const { curr, currYear, token } = req.body;
 
         const subjects = await getSubjectsFromRequest({ token, curr, currYear });
-        await subjects.forEach(async (item) => {
+
+        // Replace forEach with Promise.all to wait for all operations to complete
+        await Promise.all(subjects.map(async (item) => {
             const { curriculum, year, subject } = item;
 
             const name = `${curriculum}_${year}_${subject}`;
-            const payload = { curriculum, year, subject }
+            const payload = { curriculum, year, subject };
             console.log(`Downloading ${name}...`);
             const chapters = await getChapters({ name, payload, token });
             console.log(`Uploading ${name}...`);
-            uploadToServer({ name, token })
+            await uploadToServer({ name, token });
+        }));
 
-        })
-
+        // This will only execute after all downloads and uploads are complete
         res.status(200).json({
-            message: 'Download started',
-            details: 'The download process has started. You will receive a notification once it is completed.',
+            message: 'Download completed',
+            details: 'All subjects have been downloaded and uploaded successfully.',
             subjects
         });
 
     } catch (error) {
         console.error("Error:", error);
+        res.status(500).json({
+            message: 'An error occurred',
+            error: error.message
+        });
     }
-
 };
-
 
 export const downloadArchive = async (req, res) => {
 
