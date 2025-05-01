@@ -43,6 +43,7 @@ export const uploadToServer = async ({ name, token }) => {
             }
         });
 
+        // remove 
         console.log("Upload successful:", response.status);
         return response.data;
 

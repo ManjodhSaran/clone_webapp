@@ -61,13 +61,26 @@ export const archiverWeb = async (req, res) => {
         await Promise.all(subjects.map(async (item) => {
             const { curriculum, year, subject } = item;
 
-            const name = `${curriculum}_${year}_${subject}`;
+            let name = `${curriculum}_${year}_${subject}`;
+            // replace space with black
+            name = name.replaceAll(" ", "");
+
             const payload = { curriculum, year, subject };
             console.log(`Downloading ${name}...`);
             const chapters = await getChapters({ name, payload, token });
             console.log(`Uploading ${name}...`);
             await uploadToServer({ name, token });
+
         }));
+
+
+        // clear the results folder and downloads folder
+        if (fsSync.existsSync('results')) {
+            await fsSync.promises.rm('results', { recursive: true, force: true });
+        }
+        if (fsSync.existsSync('downloads')) {
+            await fsSync.promises.rm('downloads', { recursive: true, force: true });
+        }
 
         // This will only execute after all downloads and uploads are complete
         res.status(200).json({
