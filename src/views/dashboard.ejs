@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= user.schoolName %> - Dashboard
+    </title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/axios/0.21.1/axios.min.js"></script>
+</head>
+
+<body class="bg-gray-50 font-sans flex flex-col min-h-screen">
+    <!-- Header -->
+    <header class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-graduation-cap text-2xl"></i>
+                    <h1 class="text-xl font-bold">
+                        <%= user.schoolName %>
+                    </h1>
+                </div>
+                <div class="flex items-center space-x-6">
+                    <div class="hidden md:flex items-center space-x-4">
+                        <span>
+                            <%= user.firstName %>
+                                <%= user.lastName %>
+                        </span>
+                        <div class="h-8 w-8 rounded-full bg-white overflow-hidden">
+                            <img src="<%= user.loginImage %>" alt="<%= user.firstName %>"
+                                class="h-full w-full object-cover">
+                        </div>
+                    </div>
+                    <a href="/logout"
+                        class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg transition duration-300 flex items-center">
+                        <i class="fas fa-sign-out-alt mr-2"></i>
+                        <span>Logout</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-grow container mx-auto px-4 py-8">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- User Profile Card -->
+            <div
+                class="col-span-1 bg-white rounded-xl shadow-md overflow-hidden transform transition-all hover:shadow-xl">
+                <div class="bg-blue-500 h-24 relative">
+                    <div class="absolute -bottom-12 left-6">
+                        <div class="h-24 w-24 rounded-full border-4 border-white overflow-hidden bg-white shadow-lg">
+                            <img src="<%= user.loginImage %>" alt="<%= user.firstName %>"
+                                class="h-full w-full object-cover">
+                        </div>
+                    </div>
+                </div>
+                <div class="pt-16 pb-6 px-6">
+                    <h2 class="text-2xl font-bold text-gray-800">
+                        <%= user.firstName %>
+                            <%= user.lastName %>
+                    </h2>
+                    <p class="text-gray-500">@<%= user.userName %>
+                    </p>
+                    <div class="mt-4 flex flex-col space-y-2">
+                        <div class="flex items-center">
+                            <i class="fas fa-id-badge text-blue-500 w-6"></i>
+                            <span class="ml-2 text-gray-600">ID: <%= user.userId %></span>
+                        </div>
+                        <div class="flex items-center">
+                            <i class="fas fa-user-shield text-blue-500 w-6"></i>
+                            <span class="ml-2 text-gray-600">Role: <%= user.loginType.replace('_', ' ' ) %></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- School Information -->
+            <div class="col-span-1 bg-white rounded-xl shadow-md p-6 transform transition-all hover:shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">School Details</h3>
+                    <i class="fas fa-school text-blue-500 text-xl"></i>
+                </div>
+                <div class="flex flex-col space-y-4">
+                    <div class="flex flex-col">
+                        <span class="text-gray-500 text-sm">School Name</span>
+                        <span class="text-gray-800 font-medium">
+                            <%= user.schoolName %>
+                        </span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-gray-500 text-sm">School ID</span>
+                        <span class="text-gray-800 font-medium">
+                            <%= user.idSchool %>
+                        </span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-gray-500 text-sm">Curriculum</span>
+                        <span class="text-gray-800 font-medium">
+                            <%= user.curr %>
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Academic Information -->
+            <div class="col-span-1 bg-white rounded-xl shadow-md p-6 transform transition-all hover:shadow-xl">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-gray-800">Academic Details</h3>
+                    <i class="fas fa-book text-blue-500 text-xl"></i>
+                </div>
+                <div class="flex flex-col space-y-4">
+                    <div class="flex flex-col">
+                        <span class="text-gray-500 text-sm">Current Year</span>
+                        <span class="text-gray-800 font-medium">
+                            <%= user.currYear %>
+                        </span>
+                    </div>
+                    <div class="flex flex-col">
+                        <span class="text-gray-500 text-sm">Year Group</span>
+                        <span class="text-gray-800 font-medium">
+                            <%= user.yearGroup || 'Not Assigned' %>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-xl shadow-md p-6 text-white">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h4 class="text-lg font-semibold opacity-80">User Type</h4>
+                        <p class="text-2xl font-bold mt-2">
+                            <%= user.loginType.replace('_', ' ' ) %>
+                        </p>
+                    </div>
+                    <div class="bg-white bg-opacity-30 p-3 rounded-lg">
+                        <i class="fas fa-user-cog text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl shadow-md p-6 text-white">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h4 class="text-lg font-semibold opacity-80">Current Class</h4>
+                        <p class="text-2xl font-bold mt-2">
+                            <%= user.currYear %>
+                        </p>
+                    </div>
+                    <div class="bg-white bg-opacity-30 p-3 rounded-lg">
+                        <i class="fas fa-chalkboard-teacher text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-r from-green-500 to-green-600 rounded-xl shadow-md p-6 text-white">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h4 class="text-lg font-semibold opacity-80">Curriculum</h4>
+                        <p class="text-2xl font-bold mt-2">
+                            <%= user.curr %>
+                        </p>
+                    </div>
+                    <div class="bg-white bg-opacity-30 p-3 rounded-lg">
+                        <i class="fas fa-book-open text-xl"></i>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-gradient-to-r from-red-500 to-red-600 rounded-xl shadow-md p-6 text-white">
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h4 class="text-lg font-semibold opacity-80">User ID</h4>
+                        <p class="text-2xl font-bold mt-2">
+                            <%= user.userId %>
+                        </p>
+                    </div>
+                    <div class="bg-white bg-opacity-30 p-3 rounded-lg">
+                        <i class="fas fa-fingerprint text-xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Subject Management Section -->
+        <div class="mt-8">
+            <h3 class="text-2xl font-bold text-gray-800 mb-6">Subject Management</h3>
+
+            <!-- Subject Tabs -->
+            <div class="mb-6 flex overflow-x-auto bg-white rounded-lg shadow">
+                <button class="subject-tab active px-6 py-3 font-medium" data-subject="Biology">Biology</button>
+                <button class="subject-tab px-6 py-3 font-medium" data-subject="Physics">Physics</button>
+                <button class="subject-tab px-6 py-3 font-medium" data-subject="Chemistry">Chemistry</button>
+                <button class="subject-tab px-6 py-3 font-medium" data-subject="Mathematics">Mathematics</button>
+                <button class="subject-tab px-6 py-3 font-medium" data-subject="English">English</button>
+            </div>
+
+            <!-- Subject Status Card -->
+            <div class="bg-white rounded-xl shadow-md p-6 mb-8">
+                <div class="flex justify-between items-center mb-6">
+                    <h4 class="text-xl font-bold text-gray-800">
+                        <span id="current-subject">Biology</span> Status
+                    </h4>
+                    <div class="flex items-center">
+                        <span id="loading-indicator" class="hidden">
+                            <i class="fas fa-spinner fa-spin text-blue-500 mr-2"></i>
+                            Loading...
+                        </span>
+                        <div id="status-indicator" class="flex items-center ml-4">
+                            <div class="h-3 w-3 rounded-full bg-gray-300 mr-2"></div>
+                            <span class="text-gray-500">Checking status...</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="subject-details" class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h5 class="text-md font-semibold text-gray-700 mb-3">Subject Information</h5>
+                        <div class="space-y-2">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Curriculum:</span>
+                                <span class="font-medium">
+                                    <%= user.curr %>
+                                </span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Class:</span>
+                                <span class="font-medium">
+                                    <%= user.currYear %>
+                                </span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Subject:</span>
+                                <span id="subject-name" class="font-medium">Biology</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h5 class="text-md font-semibold text-gray-700 mb-3">Offline Status</h5>
+                        <div id="offline-status" class="space-y-2">
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Status:</span>
+                                <span id="status-text" class="font-medium">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Downloaded:</span>
+                                <span id="downloaded-date" class="font-medium">-</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-gray-600">Size:</span>
+                                <span id="subject-size" class="font-medium">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-6 flex justify-end space-x-4">
+                    <button id="refresh-status"
+                        class="bg-gray-100 hover:bg-gray-200 text-gray-800 py-2 px-4 rounded-lg transition duration-300 flex items-center">
+                        <i class="fas fa-sync-alt mr-2"></i>
+                        Refresh Status
+                    </button>
+                    <button id="download-subject"
+                        class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg transition duration-300 flex items-center">
+                        <i class="fas fa-download mr-2"></i>
+                        Download Subject
+                    </button>
+                </div>
+            </div>
+
+            <!-- API Response Panel -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                <div class="bg-gray-800 px-6 py-4 flex justify-between items-center">
+                    <h4 class="text-lg font-semibold text-white">API Response</h4>
+                    <button id="clear-log" class="text-gray-400 hover:text-white">
+                        <i class="fas fa-trash-alt"></i>
+                    </button>
+                </div>
+                <div id="api-log" class="bg-gray-900 text-green-400 p-4 font-mono text-sm overflow-x-auto"
+                    style="height: 200px; overflow-y: auto;">
+                    // API responses will appear here
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-6 mt-8">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-4 md:mb-0">
+                    <h3 class="text-lg font-semibold flex items-center">
+                        <i class="fas fa-graduation-cap mr-2"></i>
+                        <%= user.schoolName %>
+                    </h3>
+                    <p class="text-gray-400 text-sm mt-1">Excellence in Education</p>
+                </div>
+                <div class="flex flex-col items-center md:items-end">
+                    <div class="flex space-x-4 mb-2">
+                        <a href="#" class="text-gray-400 hover:text-white transition duration-300">
+                            <i class="fab fa-facebook"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition duration-300">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition duration-300">
+                            <i class="fab fa-instagram"></i>
+                        </a>
+                        <a href="#" class="text-gray-400 hover:text-white transition duration-300">
+                            <i class="fab fa-linkedin"></i>
+                        </a>
+                    </div>
+                    <p class="text-gray-400 text-sm">&copy; "<%= user.schoolName %>". All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- JavaScript for API Integration -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Elements
+            const subjectTabs = document.querySelectorAll('.subject-tab');
+            const currentSubjectElement = document.getElementById('current-subject');
+            const subjectNameElement = document.getElementById('subject-name');
+            const statusTextElement = document.getElementById('status-text');
+            const downloadedDateElement = document.getElementById('downloaded-date');
+            const subjectSizeElement = document.getElementById('subject-size');
+            const statusIndicator = document.getElementById('status-indicator');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const refreshStatusButton = document.getElementById('refresh-status');
+            const downloadSubjectButton = document.getElementById('download-subject');
+            const apiLogElement = document.getElementById('api-log');
+            const clearLogButton = document.getElementById('clear-log');
+
+            // Current state
+            let currentSubject = 'Biology';
+
+            // Log API responses
+            function logApiResponse(message, isError = false) {
+                const timestamp = new Date().toLocaleTimeString();
+                const logEntry = document.createElement('div');
+                logEntry.className = isError ? 'text-red-400' : 'text-green-400';
+                logEntry.innerHTML = `[${timestamp}] ${message}`;
+                apiLogElement.appendChild(logEntry);
+                apiLogElement.scrollTop = apiLogElement.scrollHeight;
+            }
+
+            // Clear log
+            clearLogButton.addEventListener('click', function () {
+                apiLogElement.innerHTML = '// API responses will appear here';
+            });
+
+            // Update UI based on subject status
+            function updateStatusUI(status) {
+                if (!status) {
+                    statusTextElement.innerText = 'Not Available';
+                    downloadedDateElement.innerText = '-';
+                    subjectSizeElement.innerText = '-';
+                    statusIndicator.innerHTML = `
+                        <div class="h-3 w-3 rounded-full bg-gray-400 mr-2"></div>
+                        <span class="text-gray-500">Not Available</span>
+                    `;
+                    return;
+                }
+
+                const isOffline = status.isOffline || false;
+                const lastDownloaded = status.downloadDate ? new Date(status.downloadDate).toLocaleString() : 'Never';
+                const size = status.size ? `${(status.size / (1024 * 1024)).toFixed(2)} MB` : 'Unknown';
+
+                statusTextElement.innerText = isOffline ? 'Downloaded' : 'Not Downloaded';
+                downloadedDateElement.innerText = lastDownloaded;
+                subjectSizeElement.innerText = size;
+
+                if (isOffline) {
+                    statusIndicator.innerHTML = `
+                        <div class="h-3 w-3 rounded-full bg-green-500 mr-2"></div>
+                        <span class="text-green-500">Downloaded</span>
+                    `;
+                    downloadSubjectButton.innerHTML = `
+                        <i class="fas fa-trash-alt mr-2"></i>
+                        Remove Download
+                    `;
+                    downloadSubjectButton.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                    downloadSubjectButton.classList.add('bg-red-500', 'hover:bg-red-600');
+                } else {
+                    statusIndicator.innerHTML = `
+                        <div class="h-3 w-3 rounded-full bg-yellow-500 mr-2"></div>
+                        <span class="text-yellow-500">Not Downloaded</span>
+                    `;
+                    downloadSubjectButton.innerHTML = `
+                        <i class="fas fa-download mr-2"></i>
+                        Download Subject
+                    `;
+                    downloadSubjectButton.classList.remove('bg-red-500', 'hover:bg-red-600');
+                    downloadSubjectButton.classList.add('bg-blue-500', 'hover:bg-blue-600');
+                }
+            }
+
+            // Fetch subject status
+            async function fetchSubjectStatus(subject) {
+                loadingIndicator.classList.remove('hidden');
+                statusIndicator.classList.add('hidden');
+
+                try {
+                    const response = await axios.get(`/api/offline/subject/status`, {
+                        params: {
+                            curr: '<%= user.curr %>',
+                            currYear: '<%= user.currYear %>',
+                            subject: subject
+                        }
+                    });
+
+                    loadingIndicator.classList.add('hidden');
+                    statusIndicator.classList.remove('hidden');
+
+                    logApiResponse(`Subject status retrieved: ${JSON.stringify(response.data)}`);
+                    updateStatusUI(response.data.subjectStatus);
+                    return response.data.subjectStatus;
+                } catch (error) {
+                    loadingIndicator.classList.add('hidden');
+                    statusIndicator.classList.remove('hidden');
+
+                    logApiResponse(`Error fetching subject status: ${error.response?.data?.message || error.message}`, true);
+                    updateStatusUI(null);
+                    return null;
+                }
+            }
+
+            // Toggle subject download status
+            async function toggleSubjectDownload(subject, currentStatus) {
+                loadingIndicator.classList.remove('hidden');
+
+                try {
+                    const response = await axios.post(`/api/offline/subject/status`, {
+                        curr: '<%= user.curr %>',
+                        currYear: '<%= user.currYear %>',
+                        subject: subject
+                    });
+
+                    loadingIndicator.classList.add('hidden');
+                    logApiResponse(`Subject status updated: ${JSON.stringify(response.data)}`);
+
+                    // Refresh status after toggling
+                    await fetchSubjectStatus(subject);
+                } catch (error) {
+                    loadingIndicator.classList.add('hidden');
+                    logApiResponse(`Error updating subject status: ${error.response?.data?.message || error.message}`, true);
+                }
+            }
+
+            // Handle subject tab clicks
+            subjectTabs.forEach(tab => {
+                tab.addEventListener('click', async function () {
+                    // Update active tab
+                    subjectTabs.forEach(t => t.classList.remove('active', 'text-blue-600', 'border-b-2', 'border-blue-600'));
+                    this.classList.add('active', 'text-blue-600', 'border-b-2', 'border-blue-600');
+
+                    // Update current subject
+                    currentSubject = this.dataset.subject;
+                    currentSubjectElement.innerText = currentSubject;
+                    subjectNameElement.innerText = currentSubject;
+
+                    // Fetch status for the selected subject
+                    await fetchSubjectStatus(currentSubject);
+                });
+            });
+
+            // Handle refresh button click
+            refreshStatusButton.addEventListener('click', async function () {
+                await fetchSubjectStatus(currentSubject);
+            });
+
+            // Handle download button click
+            downloadSubjectButton.addEventListener('click', async function () {
+                await toggleSubjectDownload(currentSubject);
+            });
+
+            // Add active styling to the initially selected tab
+            document.querySelector('.subject-tab.active').classList.add('text-blue-600', 'border-b-2', 'border-blue-600');
+
+            // Initialize with status for the default subject
+            fetchSubjectStatus(currentSubject);
+
+            // Log initial message
+            logApiResponse('Dashboard initialized. Ready to manage subjects.');
+        });
+    </script>
+
+    <style>
+        /* Additional styles */
+        .subject-tab {
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .subject-tab:hover:not(.active) {
+            background-color: #f3f4f6;
+        }
+
+        /* Hide scrollbar but allow scrolling */
+        #api-log::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+
+        #api-log::-webkit-scrollbar-thumb {
+            background: #4b5563;
+            border-radius: 3px;
+        }
+
+        #api-log::-webkit-scrollbar-track {
+            background: #1f2937;
+        }
+    </style>
+</body>
+
+</html>

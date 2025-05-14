@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>
+        <%= title %>
+    </title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f7f9fc;
+            background-image: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            max-height: 100vh;
+        }
+
+        .login-container {
+            height: 100%;
+
+        }
+
+        .login-card {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            border-radius: 16px;
+            max-width: 450px;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        .card-header {
+            background-image: linear-gradient(to right, #3b82f6, #2563eb);
+            padding: 2rem 1.5rem;
+            color: white;
+            text-align: center;
+        }
+
+        .logo-container {
+            width: 90px;
+            height: 90px;
+            margin: 0 auto 1.25rem;
+            position: relative;
+        }
+
+        .logo-placeholder {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background-color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #3b82f6;
+            font-size: 2rem;
+            font-weight: bold;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        }
+
+        .input-group {
+            position: relative;
+        }
+
+        .input-icon {
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #6b7280;
+        }
+
+        .input-field {
+            padding-left: 2.5rem !important;
+            transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        .submit-btn {
+            background-image: linear-gradient(to right, #3b82f6, #2563eb);
+            transition: all 0.3s ease;
+        }
+
+        .submit-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25);
+        }
+
+        .submit-btn:active {
+            transform: translateY(0);
+        }
+
+        .footer-link {
+            transition: all 0.2s ease;
+        }
+
+        .footer-link:hover {
+            color: #2563eb;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+
+        .error-message {
+            animation: shake 0.5s cubic-bezier(.36, .07, .19, .97) both;
+        }
+
+        @keyframes shake {
+
+            10%,
+            90% {
+                transform: translate3d(-1px, 0, 0);
+            }
+
+            20%,
+            80% {
+                transform: translate3d(2px, 0, 0);
+            }
+
+            30%,
+            50%,
+            70% {
+                transform: translate3d(-4px, 0, 0);
+            }
+
+            40%,
+            60% {
+                transform: translate3d(4px, 0, 0);
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="bg-blue-600 text-white shadow-lg">
+        <div class="container mx-auto px-4 py-3">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-graduation-cap text-2xl"></i>
+                    <h1 class="text-xl font-bold">Grade Plus</h1>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="login-container flex items-center justify-center p-4">
+        <div class="login-card bg-white fade-in">
+            <div class="card-header">
+                <div class="logo-container">
+                    <div class="logo-placeholder">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                </div>
+                <h1 class="text-2xl font-bold">Welcome Back</h1>
+                <p class="mt-1 opacity-80">Sign in to access your account</p>
+            </div>
+
+            <div class="p-8">
+                <% if (error) { %>
+                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-6 rounded error-message"
+                        role="alert">
+                        <div class="flex items-center">
+                            <i class="fas fa-exclamation-circle mr-2"></i>
+                            <span>
+                                <%= error %>
+                            </span>
+                        </div>
+                    </div>
+                    <% } %>
+
+                        <form action="/ui/login" method="POST" class="space-y-6">
+                            <div class="input-group">
+                                <label for="user" class="block text-sm font-medium text-gray-700 mb-1">Username</label>
+                                <div class="relative">
+                                    <i class="fas fa-user input-icon"></i>
+                                    <input type="text" id="user" name="user"
+                                        class="input-field block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                        required autofocus>
+                                </div>
+                            </div>
+
+                            <div class="input-group">
+                                <label for="password"
+                                    class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                                <div class="relative">
+                                    <i class="fas fa-lock input-icon"></i>
+                                    <input type="password" id="password" name="password"
+                                        class="input-field block w-full px-3 py-3 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                        required>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center">
+                                    <input id="remember_me" name="remember_me" type="checkbox"
+                                        class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+                                    <label for="remember_me" class="ml-2 block text-sm text-gray-700">
+                                        Remember me
+                                    </label>
+                                </div>
+                                <div>
+                                    <a href="#"
+                                        class="font-medium text-blue-600 hover:text-blue-500 text-sm footer-link">
+                                        Forgot password?
+                                    </a>
+                                </div>
+                            </div>
+
+                            <div>
+                                <button type="submit"
+                                    class="submit-btn w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                    <i class="fas fa-sign-in-alt mr-2"></i>
+                                    Sign in
+                                </button>
+                            </div>
+                        </form>
+
+                        <div class="mt-6 text-center">
+                            <p class="text-sm text-gray-600">Don't have an account? <a href="#"
+                                    class="font-medium text-blue-600 hover:text-blue-500 footer-link">Contact
+                                    administrator</a></p>
+                        </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 text-white py-4 mt-auto">
+        <div class="container mx-auto px-4">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="mb-2 md:mb-0">
+                    <h3 class="text-sm font-semibold flex items-center">
+                        <i class="fas fa-graduation-cap mr-2"></i>
+                        Grade Plus
+                    </h3>
+                </div>
+                <p class="text-gray-400 text-xs">&copy; <%= new Date().getFullYear() %> Grade Plus. All rights
+                        reserved.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>
