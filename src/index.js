@@ -4,14 +4,17 @@ import path from 'path';
 import cookieParser from 'cookie-parser';
 import session from 'express-session';
 import { fileURLToPath } from 'url';
-import bodyParser from 'body-parser';
 
 import { dirname } from 'path';
 
-
+import cors from 'cors';
 
 // Import routes
-import { router as authRoutes, uiAuthMiddleware } from './routes/auth.js';
+import { router as authRoutes } from './routes/auth.js';
+import { uiAuthMiddleware } from './routes/middlewares.js';
+
+
+
 
 // Get directory name in ES module
 const __filename = fileURLToPath(import.meta.url);
@@ -41,6 +44,18 @@ app.use(session({
   }
 }));
 
+
+
+app.use(cors({ origin: 'http://localhost:5173' }));
+
+// console all requests
+
+app.use((req, res, next) => {
+  console.log(`Request Method: ${req.method}, Request URL: ${req.url}`);
+  next();
+}
+);
+
 app.use('/v1/api', router)
 
 
@@ -55,14 +70,13 @@ app.get('/dashboard', uiAuthMiddleware, (req, res) => {
   });
 });
 
+
+
+
 // Default route
 app.get('/', (req, res) => {
   res.redirect('/ui/login');
 });
-
-
-
-
 
 
 // Dashboard route (protected)

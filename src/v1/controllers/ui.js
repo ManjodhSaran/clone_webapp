@@ -246,6 +246,7 @@ export const authMiddleware = async (req, res, next) => {
 
         // Attach user data to request
         req.user = userData;
+        req.token = token;
         next();
     } catch (error) {
         console.error("Auth Error:", error);
@@ -278,7 +279,8 @@ export const uiAuthMiddleware = (req, res, next) => {
     }
 
     // Attach user data to request
-    req.user = userData;
+    // req.user = userData;
+    req.token = token;
     next();
 };
 

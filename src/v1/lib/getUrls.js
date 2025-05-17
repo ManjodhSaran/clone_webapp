@@ -76,9 +76,6 @@ export const getSubjectsFromRequest = async ({ token, curr, currYear }) => {
     }
 };
 
-
-
-
 export const getUrlsFromRequest = async ({ token, payload, }) => {
     try {
 
