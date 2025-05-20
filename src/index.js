@@ -45,8 +45,13 @@ app.use(session({
 }));
 
 
-
-app.use(cors({ origin: 'https://content.iblib.com' }));
+// Set up CORS
+// allow all origins
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // console all requests
 
