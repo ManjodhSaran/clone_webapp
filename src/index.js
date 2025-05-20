@@ -46,7 +46,7 @@ app.use(session({
 
 
 
-app.use(cors({ origin: 'http://localhost:5173' }));
+app.use(cors({ origin: 'https://content.iblib.com' }));
 
 // console all requests
 
