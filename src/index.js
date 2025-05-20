@@ -4,17 +4,12 @@ import path from 'path';
 import cookieParser from 'cookie-parser';
 import session from 'express-session';
 import { fileURLToPath } from 'url';
-
 import { dirname } from 'path';
-
 import cors from 'cors';
 
 // Import routes
 import { router as authRoutes } from './routes/auth.js';
 import { uiAuthMiddleware } from './routes/middlewares.js';
-
-
-
 
 // Get directory name in ES module
 const __filename = fileURLToPath(import.meta.url);
@@ -28,8 +23,25 @@ const PORT = process.env.PORT || 3000;
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
+// CORS configuration - Apply CORS early in the middleware chain
+// For development, you might want to specify your frontend origin
+const corsOptions = {
+  origin: 'https://content.iblib.com', // Change this to your production frontend domain
+  // Common frontend dev ports
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true // This is important if you're using cookies/sessions
+};
 
-// Middlewares
+app.use(cors(corsOptions));
+
+// Logging middleware
+app.use((req, res, next) => {
+  console.log(`Request Method: ${req.method}, Request URL: ${req.url}`);
+  next();
+});
+
+// Other middlewares
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
@@ -40,31 +52,15 @@ app.use(session({
   saveUninitialized: false,
   cookie: {
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 3600000 // 1 hour
+    maxAge: 3600000, // 1 hour
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax' // Helps with CORS issues for cookies
   }
 }));
 
+// API routes
+app.use('/v1/api', router);
 
-// Set up CORS
-// allow all origins
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-}));
-
-// console all requests
-
-app.use((req, res, next) => {
-  console.log(`Request Method: ${req.method}, Request URL: ${req.url}`);
-  next();
-}
-);
-
-app.use('/v1/api', router)
-
-
-// Use routes
+// Auth routes
 app.use('/', authRoutes);
 
 // Dashboard route (protected)
@@ -75,33 +71,21 @@ app.get('/dashboard', uiAuthMiddleware, (req, res) => {
   });
 });
 
-
-
-
 // Default route
 app.get('/', (req, res) => {
   res.redirect('/ui/login');
 });
 
-
-// Dashboard route (protected)
-app.get('/dashboard', uiAuthMiddleware, (req, res) => {
-  res.render('dashboard', {
-    title: 'Dashboard - IBLib',
-    user: req.user
-  });
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error(err.stack);
+  res.status(500).json({ error: 'Something went wrong!' });
 });
 
-// Default route
-app.get('/', (req, res) => {
-  res.redirect('/ui/login');
+// 404 middleware
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found' });
 });
-
-
-// // home page
-// app.get('/', (req, res) => {
-//   res.send('Offline API is running');
-// });
 
 // Start server
 app.listen(PORT, () => {
