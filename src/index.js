@@ -26,11 +26,10 @@ app.set('view engine', 'ejs');
 // CORS configuration - Apply CORS early in the middleware chain
 // For development, you might want to specify your frontend origin
 const corsOptions = {
-  origin: 'https://content.iblib.com', // Change this to your production frontend domain
+  origin: '*', // Change this to your production frontend domain
   // Common frontend dev ports
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true // This is important if you're using cookies/sessions
 };
 
 app.use(cors(corsOptions));
