@@ -22,7 +22,7 @@ const API_ENDPOINTS = {
     getYears: `${API_BASE}/study/getyear`,
     subjectOfflineFile: `${API_BASE}/content/offline/subject`,
     subjectOfflineStatus: `${API_BASE}/content/offline/subject/status`,
-    subjectOfflineStatusUpdate: `${API_BASE}/content/offline/subject/status?isOffline=1`
+    subjectOfflineStatusUpdate: `${API_BASE}/content/offline/subject/status/update?isOffline=1`
 };
 
 /**
@@ -353,7 +353,7 @@ export const SubjectController = {
         try {
             const { curr, currYear, subject } = req.query;
             const payload = { curr, currYear, subject };
-
+            console.log('payload', payload)
             const response = await axios.post(
                 API_ENDPOINTS.subjectOfflineFile,
                 payload,
@@ -384,14 +384,9 @@ export const SubjectController = {
      * Get offline subject status
      */
     getOfflineSubjectStatus: async (req, res) => {
-        if (!SubjectController.validateSubjectParams(req.query)) {
-            return res.status(400).json({
-                message: 'Curriculum, curriculum year, and subject are required'
-            });
-        }
 
         try {
-            const { curr, currYear, subject } = req.query;
+            const { curr, currYear, subject } = req.body;
             const payload = { curr, currYear, subject };
             console.log('payload', payload)
             console.log('req.token', req.token)
@@ -435,7 +430,7 @@ export const SubjectController = {
         try {
             const { curr, currYear, subject } = req.body;
             const payload = { curr, currYear, subject };
-
+            console.log('payload', payload)
             const response = await axios.post(
                 API_ENDPOINTS.subjectOfflineStatusUpdate,
                 payload,

@@ -1,4 +1,6 @@
 import router from './v1/routes/index.js';
+
+import archive from "./v1/routes/archive.js";
 import express from 'express';
 import path from 'path';
 import cookieParser from 'cookie-parser';
@@ -59,6 +61,8 @@ app.use(session({
 
 // API routes
 app.use('/v1/api', router);
+
+
 
 // Auth routes
 app.use('/', authRoutes);

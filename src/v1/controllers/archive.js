@@ -53,8 +53,8 @@ const getChapters = async ({ name, payload, token }) => {
 
 export const archiverWeb = async (req, res) => {
     try {
-        const { curr, currYear, token } = req.body;
-
+        const { curr, currYear } = req.body;
+        const token = req?.body?.token || req.token;
         const subjects = await getSubjectsFromRequest({ token, curr, currYear });
 
         // Replace forEach with Promise.all to wait for all operations to complete
