@@ -6,6 +6,8 @@ import { SubjectController, UserController } from './controller.js';
 const router = express.Router();
 
 // Subject routes
+router.get('/api/courses', authMiddleware, SubjectController.getCourses);
+router.get('/api/years', authMiddleware, SubjectController.getYears);
 router.get('/api/subjects', authMiddleware, SubjectController.getSubjects);
 router.get('/api/subjects/:id/chapters', authMiddleware, SubjectController.getChapters);
 router.get('/api/get_offline_url', authMiddleware, SubjectController.getOfflineSubject);

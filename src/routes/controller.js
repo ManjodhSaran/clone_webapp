@@ -18,6 +18,8 @@ const API_BASE = 'https://test.iblib.com/api';
 const API_ENDPOINTS = {
     login: `${API_BASE}/login`,
     getChapters: `${API_BASE}/study/chapters`,
+    getCourses: `${API_BASE}/study/courses`,
+    getYears: `${API_BASE}/study/getyear`,
     subjectOfflineFile: `${API_BASE}/content/offline/subject`,
     subjectOfflineStatus: `${API_BASE}/content/offline/subject/status`,
     subjectOfflineStatusUpdate: `${API_BASE}/content/offline/subject/status?isOffline=1`
@@ -81,7 +83,6 @@ export const UserController = {
      */
     login: async (req, res) => {
         const { username: user, password } = req.body;
-        console.log('req.body', JSON.stringify(req.body, null, 2));
 
         if (!user || !password) {
             return res.status(400).json({
@@ -262,10 +263,61 @@ export const SubjectController = {
             ErrorController.handleApiError(error, res);
         }
     },
+    getCourses: async (req, res) => {
+        try {
+            const response = await axios.get(
+                API_ENDPOINTS.getCourses,
+                {
+                    headers: {
+                        Authorization: `${req.token}`
+                    }
+                }
+            );
+            console.log('response', JSON.stringify(response.data, null, 2));
+            const courseData = response.data;
+            if (!courseData) {
+                return res.status(404).json({
+                    message: 'Course data not found'
+                });
+            }
+
+            return res.status(200).json({
+                message: 'Course data retrieved successfully',
+                data: courseData
+            });
+        } catch (error) {
+            ErrorController.handleApiError(error, res);
+        }
+    },
+    getYears: async (req, res) => {
+        try {
+            const response = await axios.get(
+                API_ENDPOINTS.getYears,
+                {
+                    headers: {
+                        Authorization: `${req.token}`
+                    }
+                }
+            );
+            console.log('response', JSON.stringify(response.data, null, 2));
+            const courseData = response.data;
+            if (!courseData) {
+                return res.status(404).json({
+                    message: 'Course data not found'
+                });
+            }
+
+            return res.status(200).json({
+                message: 'Course data retrieved successfully',
+                data: courseData?.data
+            });
+        } catch (error) {
+            ErrorController.handleApiError(error, res);
+        }
+    },
     getSubjects: async (req, res) => {
         try {
             const { curr, currYear } = req.query;
-            console.log('req.query', JSON.stringify(req.query, null, 2));
 
             if (!curr || !currYear) {
                 return res.status(400).json({

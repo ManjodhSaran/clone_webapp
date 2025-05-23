@@ -19,10 +19,6 @@ const __dirname = dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Set up view engine
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'ejs');
-
 // CORS configuration - Apply CORS early in the middleware chain
 // For development, you might want to specify your frontend origin
 const corsOptions = {
@@ -33,6 +29,11 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
+// Set up view engine
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'ejs');
+
 
 // Logging middleware
 app.use((req, res, next) => {

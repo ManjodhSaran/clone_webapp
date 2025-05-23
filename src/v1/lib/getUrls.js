@@ -68,7 +68,7 @@ export const getSubjectsFromRequest = async ({ token, curr, currYear }) => {
 
         const data = await response.json();
 
-        return data;
+        return data
 
     } catch (error) {
         console.error("Error:", error);
