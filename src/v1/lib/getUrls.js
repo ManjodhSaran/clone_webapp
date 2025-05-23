@@ -54,6 +54,7 @@ export const uploadToServer = async ({ name, token }) => {
 };
 
 export const getSubjectsFromRequest = async ({ token, curr, currYear }) => {
+    console.log('token', token)
     try {
         const response = await fetch(subjects_base_url({ curr, currYear }), {
             method: 'GET',
@@ -61,7 +62,7 @@ export const getSubjectsFromRequest = async ({ token, curr, currYear }) => {
                 'Authorization': token
             }
         });
-
+        console.log('response', JSON.stringify(response, null, 2));
         if (!response.ok) {
             throw new Error('Failed to fetch data');
         }

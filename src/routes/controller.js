@@ -386,7 +386,7 @@ export const SubjectController = {
     getOfflineSubjectStatus: async (req, res) => {
 
         try {
-            const { curr, currYear, subject } = req.body;
+            const { curr, currYear, subject } = req.query;
             const payload = { curr, currYear, subject };
             console.log('payload', payload)
             console.log('req.token', req.token)
@@ -467,7 +467,7 @@ export const ErrorController = {
      * Handle API errors
      */
     handleApiError: (error, res) => {
-        console.error("API Error:", error);
+        // console.error("API Error:", error);
 
         if (error.response) {
             // The server responded with a status code outside of 2xx
