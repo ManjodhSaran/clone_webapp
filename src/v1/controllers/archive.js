@@ -6,6 +6,92 @@ import createZipArchive from '../utils/zip.util.js';
 import { getSubjectsFromRequest, getUrlsFromRequest, uploadToServer } from '../lib/getUrls.js';
 
 
+
+
+export const archiverWeb = async (req, res) => {
+    try {
+        const { curr, currYear, subject } = req.body;
+        const token = req?.body?.token || req.token;
+
+
+        if (subject) {
+            console.log('subject', subject);
+
+            const curriculum = curr;
+            const year = currYear;
+
+
+
+
+            let name = `${curriculum}_${year}_${subject}`;
+            // replace space with black
+            name = name.replaceAll(" ", "");
+
+            const payload = { curriculum, year, subject };
+            console.log(`Downloading ${name}...`);
+            const chapters = await getChapters({ name, payload, token });
+            console.log(`Uploading ${name}...`);
+            await uploadToServer({ name, token });
+
+
+
+            return res.status(200).json({
+                message: 'Download completed',
+                details: `Subject ${subject} has been downloaded and uploaded successfully.`,
+                subject: { curriculum, year, subject }
+            });
+        }
+
+
+
+
+
+        const subjects = await getSubjectsFromRequest({ token, curr, currYear });
+
+        // Replace forEach with Promise.all to wait for all operations to complete
+        await Promise.all(subjects.map(async (item) => {
+            const { curriculum, year, subject } = item;
+
+            let name = `${curriculum}_${year}_${subject}`;
+            // replace space with black
+            name = name.replaceAll(" ", "");
+
+            const payload = { curriculum, year, subject };
+            console.log(`Downloading ${name}...`);
+            const chapters = await getChapters({ name, payload, token });
+            console.log(`Uploading ${name}...`);
+            await uploadToServer({ name, token });
+
+        }));
+
+        // clear the results folder and downloads folder
+        if (fsSync.existsSync('results')) {
+            await fsSync.promises.rm('results', { recursive: true, force: true });
+        }
+        if (fsSync.existsSync('downloads')) {
+            await fsSync.promises.rm('downloads', { recursive: true, force: true });
+        }
+
+
+        // hit  /api/update_subject_status post 
+        // with params { curr, currYear, subject }
+
+        // This will only execute after all downloads and uploads are complete
+        res.status(200).json({
+            message: 'Download completed',
+            details: 'All subjects have been downloaded and uploaded successfully.',
+            subjects
+        });
+
+    } catch (error) {
+        console.error("Error:", error);
+        res.status(500).json({
+            message: 'An error occurred',
+            error: error.message
+        });
+    }
+};
+
 const getChapters = async ({ name, payload, token }) => {
 
     try {
@@ -47,53 +133,6 @@ const getChapters = async ({ name, payload, token }) => {
         res.status(500).json({
             error: 'Download failed',
             details: error.message
-        });
-    }
-};
-
-export const archiverWeb = async (req, res) => {
-    try {
-        const { curr, currYear } = req.body;
-        const token = req?.body?.token || req.token;
-        const subjects = await getSubjectsFromRequest({ token, curr, currYear });
-
-        // Replace forEach with Promise.all to wait for all operations to complete
-        await Promise.all(subjects.map(async (item) => {
-            const { curriculum, year, subject } = item;
-
-            let name = `${curriculum}_${year}_${subject}`;
-            // replace space with black
-            name = name.replaceAll(" ", "");
-
-            const payload = { curriculum, year, subject };
-            console.log(`Downloading ${name}...`);
-            const chapters = await getChapters({ name, payload, token });
-            console.log(`Uploading ${name}...`);
-            await uploadToServer({ name, token });
-
-        }));
-
-
-        // clear the results folder and downloads folder
-        if (fsSync.existsSync('results')) {
-            await fsSync.promises.rm('results', { recursive: true, force: true });
-        }
-        if (fsSync.existsSync('downloads')) {
-            await fsSync.promises.rm('downloads', { recursive: true, force: true });
-        }
-
-        // This will only execute after all downloads and uploads are complete
-        res.status(200).json({
-            message: 'Download completed',
-            details: 'All subjects have been downloaded and uploaded successfully.',
-            subjects
-        });
-
-    } catch (error) {
-        console.error("Error:", error);
-        res.status(500).json({
-            message: 'An error occurred',
-            error: error.message
         });
     }
 };
