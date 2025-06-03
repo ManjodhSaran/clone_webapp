@@ -4,6 +4,45 @@ import { URL } from 'url';
 import fs from 'fs/promises';
 import * as cheerio from 'cheerio';
 import { processAsset } from './processAsset.js';
+import { validateAndFixFilename, isValidFilename } from './filenameValidator.js';
+
+// Enhanced formatName function with better validation
+const formatName = (name) => {
+    return validateAndFixFilename(name);
+}
+
+// Helper function to create safe asset filename
+const createSafeAssetPath = (assetUrl, baseUrl) => {
+    try {
+        const fullUrl = new URL(assetUrl, baseUrl).toString();
+        const urlPath = new URL(fullUrl).pathname;
+
+        // Split the path into directory and filename
+        const dir = path.dirname(urlPath);
+        const originalFilename = path.basename(urlPath);
+
+        // Validate and fix the filename
+        const safeFilename = formatName(originalFilename);
+
+        // If filename is empty after cleaning, generate a default one
+        if (!safeFilename || safeFilename === 'file') {
+            const timestamp = Date.now();
+            const ext = path.extname(originalFilename) || '.bin';
+            return {
+                fullUrl: fullUrl.replace(originalFilename, `asset_${timestamp}${ext}`),
+                filename: `asset_${timestamp}${ext}`
+            };
+        }
+
+        return {
+            fullUrl: fullUrl.replace(originalFilename, safeFilename),
+            filename: safeFilename
+        };
+    } catch (error) {
+        console.warn('Error creating safe asset path:', error.message);
+        return null;
+    }
+};
 
 export const processUrl = async ({ url, depth, localPath, crawlState, baseOutputDir }) => {
     let { processedUrls, pendingUrls, domainCounters, urlToLocalMap, stats: { totalPages, failedPages, totalAssets, }, config } = crawlState
@@ -32,7 +71,6 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
         }
 
         const html = response.data;
-
         const $ = cheerio.load(html);
 
         // Remove problematic elements
@@ -41,19 +79,17 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
         $('script[src*="googletagmanager"]').remove();
         $('script[src*="facebook"]').remove();
         $('script[src*="twitter"]').remove();
-        $('iframe[src*="youtube"]').remove(); // Can optionally keep if video archiving is needed
+        $('iframe[src*="youtube"]').remove();
 
         // Remove srcset attribute from all images
         $('img').removeAttr('srcset');
         $('source').removeAttr('srcset');
-
 
         let baseUrl = url;
         const baseTag = $('base[href]');
         if (baseTag.length) {
             try { baseUrl = new URL(baseTag.attr('href'), url).toString(); } catch { }
         }
-
 
         const assetTypes = {
             'img[src]': 'src',
@@ -75,6 +111,7 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
 
         const assetPromises = [];
 
+        // First pass: Update existing absolute URLs to relative paths
         $('[href], [src]').each((_, el) => {
             ['href', 'src'].forEach(attr => {
                 const val = $(el).attr(attr);
@@ -90,58 +127,88 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
             });
         });
 
+        // Process assets with enhanced filename validation
         for (const [selector, attr] of Object.entries(assetTypes)) {
             $(selector).each((_, el) => {
                 const assetUrl = $(el).attr(attr);
+                console.log('Processing asset:', assetUrl);
+
                 if (assetUrl && !assetUrl.startsWith('data:') && !assetUrl.startsWith('blob:') && !assetUrl.startsWith('#')) {
-                    try {
-                        const fullUrl = new URL(assetUrl, baseUrl).toString();
-                        const promise = processAsset({ assetUrl: fullUrl, url, crawlState }).then(info => {
+                    const safeAssetInfo = createSafeAssetPath(assetUrl, baseUrl);
+
+                    if (safeAssetInfo) {
+                        console.log('Safe asset URL:', safeAssetInfo.fullUrl);
+                        console.log('Safe filename:', safeAssetInfo.filename);
+
+                        const promise = processAsset({
+                            assetUrl: safeAssetInfo.fullUrl,
+                            url,
+                            crawlState
+                        }).then(info => {
                             if (info) {
                                 const relative = path.relative(path.dirname(localPath), info.path);
                                 $(el).attr(attr, relative);
                                 crawlState.stats.totalAssets++;
-
                             }
+                        }).catch(error => {
+                            console.error('Failed to process asset:', safeAssetInfo.fullUrl, error.message);
                         });
+
                         assetPromises.push(promise);
-                    } catch { }
+                    } else {
+                        console.warn('Could not create safe path for asset:', assetUrl);
+                    }
                 }
             });
         }
 
+        // Process CSS with enhanced filename validation
         $('style').each((_, el) => {
             const css = $(el).html();
             if (!css) return;
+
             let modified = css;
             const regex = /url\(['"]?([^'")]+)['"]?\)/g;
             const cssPromises = [];
             let match;
+
             while ((match = regex.exec(css)) !== null) {
                 const cssUrl = match[1];
                 if (cssUrl.startsWith('data:') || cssUrl.startsWith('#')) continue;
-                try {
-                    const fullUrl = new URL(cssUrl, baseUrl).toString();
-                    const promise = processAsset({ assetUrl: fullUrl, url, crawlState }).then(info => {
+
+                const safeAssetInfo = createSafeAssetPath(cssUrl, baseUrl);
+
+                if (safeAssetInfo) {
+                    const promise = processAsset({
+                        assetUrl: safeAssetInfo.fullUrl,
+                        url,
+                        crawlState
+                    }).then(info => {
                         if (info) {
                             const relative = path.relative(path.dirname(localPath), info.path);
-                            modified = modified.replace(match?.[0], `url(${relative})`);
+                            modified = modified.replace(match[0], `url(${relative})`);
                             crawlState.stats.totalAssets++;
                         }
+                    }).catch(error => {
+                        console.error('Failed to process CSS asset:', safeAssetInfo.fullUrl, error.message);
                     });
+
                     cssPromises.push(promise);
-                } catch { }
+                }
             }
+
             assetPromises.push(...cssPromises);
             Promise.all(cssPromises).then(() => $(el).html(modified));
         });
 
         await Promise.all(assetPromises);
 
+        // Process links for next depth level
         if (depth < config.maxDepth) {
             $('a[href]').each((_, el) => {
                 const href = $(el).attr('href');
                 if (!href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:') || href.startsWith('tel:')) return;
+
                 try {
                     const linkedUrl = new URL(href, baseUrl).toString();
                     const ext = path.extname(linkedUrl).toLowerCase();
@@ -154,16 +221,23 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
                         const relative = path.relative(path.dirname(localPath), pendingUrls.get(linkedUrl).localPath);
                         $(el).attr('href', relative);
                     } else {
-                        const newLocalPath = path.join(baseOutputDir, linkedUrl.replace(/^https?:\/\//, '').replace(/\/+$/, ''), 'index.html');
+                        // Create safe path for the linked page
+                        const urlPath = linkedUrl.replace(/^https?:\/\//, '').replace(/\/+$/, '');
+                        const safePath = urlPath.split('/').map(segment => formatName(segment)).join('/');
+                        const newLocalPath = path.join(baseOutputDir, safePath, 'index.html');
                         const relative = path.relative(path.dirname(localPath), newLocalPath);
                         $(el).attr('href', relative);
                         pendingUrls.set(linkedUrl, { depth: depth + 1, localPath: newLocalPath });
                     }
-                } catch { }
+                } catch (error) {
+                    console.warn('Error processing link:', href, error.message);
+                }
             });
         }
 
         await fs.writeFile(localPath, $.html());
+        console.log(`Successfully processed: ${url}`);
+
     } catch (err) {
         crawlState.stats.failedPages++;
         console.error(`Failed to process URL: ${url}`, err.message);
