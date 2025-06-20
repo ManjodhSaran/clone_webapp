@@ -8,7 +8,7 @@ const subjects_base_url = ({ curr, currYear }) =>
 const chapters_base_url = "https://www.iblib.com/api/study/chapters";
 const html_base_url = "https://www.iblib.com/user/html/topic/";
 
-const uploadUrl = 'https://test.iblib.com/api/uploadfile';
+const uploadUrl = 'https://iblib.com/api/uploadfile';
 
 export const uploadToServer = async ({ name, token }) => {
     const filePath = path.join(process.cwd(), 'downloads', `${name}.zip`);

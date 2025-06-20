@@ -14,7 +14,7 @@ const COOKIE_OPTIONS = {
 
 // ============= CONFIGURATION =============
 // API endpoints
-const API_BASE = 'https://test.iblib.com/api';
+const API_BASE = 'https://iblib.com/api';
 const API_ENDPOINTS = {
     login: `${API_BASE}/login`,
     getChapters: `${API_BASE}/study/chapters`,
