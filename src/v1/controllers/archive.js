@@ -5,23 +5,89 @@ import { getLocalVersion } from '../lib/archiver.js';
 import createZipArchive from '../utils/zip.util.js';
 import { getSubjectsFromRequest, getUrlsFromRequest, uploadToServer } from '../lib/getUrls.js';
 
-
-
-
+/**
+ * @swagger
+ * /v1/api/archive:
+ *   post:
+ *     summary: Archive educational content
+ *     description: Downloads and archives educational content for offline access. Can archive a specific subject or all subjects for a curriculum and year.
+ *     tags: [Archive]
+ *     security:
+ *       - bearerAuth: []
+ *       - cookieAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [curr, currYear]
+ *             properties:
+ *               curr:
+ *                 type: string
+ *                 description: Curriculum identifier
+ *                 example: "IB"
+ *               currYear:
+ *                 type: string
+ *                 description: Curriculum year
+ *                 example: "Year 12"
+ *               subject:
+ *                 type: string
+ *                 description: Specific subject to archive (optional, archives all if not provided)
+ *                 example: "Biology"
+ *               token:
+ *                 type: string
+ *                 description: Authentication token (optional, uses request token if not provided)
+ *     responses:
+ *       200:
+ *         description: Archive process completed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Download completed"
+ *                 details:
+ *                   type: string
+ *                   example: "All subjects have been downloaded and uploaded successfully."
+ *                 subjects:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Subject'
+ *                 subject:
+ *                   $ref: '#/components/schemas/Subject'
+ *                   description: Only present when archiving a single subject
+ *       400:
+ *         description: Missing required parameters
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       401:
+ *         description: Authentication required
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       500:
+ *         description: Archive process failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
 export const archiverWeb = async (req, res) => {
     try {
         const { curr, currYear, subject } = req.body;
         const token = req?.body?.token || req.token;
-
 
         if (subject) {
             console.log('subject', subject);
 
             const curriculum = curr;
             const year = currYear;
-
-
-
 
             let name = `${curriculum}_${year}_${subject}`;
             // replace space with black
@@ -33,18 +99,12 @@ export const archiverWeb = async (req, res) => {
             console.log(`Uploading ${name}...`);
             await uploadToServer({ name, token });
 
-
-
             return res.status(200).json({
                 message: 'Download completed',
                 details: `Subject ${subject} has been downloaded and uploaded successfully.`,
                 subject: { curriculum, year, subject }
             });
         }
-
-
-
-
 
         const subjects = await getSubjectsFromRequest({ token, curr, currYear });
 
@@ -71,10 +131,6 @@ export const archiverWeb = async (req, res) => {
         if (fsSync.existsSync('downloads')) {
             await fsSync.promises.rm('downloads', { recursive: true, force: true });
         }
-
-
-        // hit  /api/update_subject_status post 
-        // with params { curr, currYear, subject }
 
         // This will only execute after all downloads and uploads are complete
         res.status(200).json({
@@ -137,6 +193,42 @@ const getChapters = async ({ name, payload, token }) => {
     }
 };
 
+/**
+ * @swagger
+ * /v1/api/archive/download/{filename}:
+ *   get:
+ *     summary: Download archived content
+ *     description: Downloads a previously archived content file
+ *     tags: [Archive]
+ *     parameters:
+ *       - in: path
+ *         name: filename
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Name of the archived file to download
+ *         example: "IB_Year12_Biology.zip"
+ *     responses:
+ *       200:
+ *         description: File download started
+ *         content:
+ *           application/zip:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: File not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ *       500:
+ *         description: Download failed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ApiError'
+ */
 export const downloadArchive = async (req, res) => {
 
     const { filename } = req.params;

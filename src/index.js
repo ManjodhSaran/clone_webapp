@@ -1,4 +1,5 @@
 import router from './v1/routes/index.js';
+import { specs, swaggerUi } from './config/swagger.js';
 
 import dotenv from 'dotenv';
 import express from 'express';
@@ -36,6 +37,26 @@ app.use(cors(corsOptions));
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
+// Swagger Documentation
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs, {
+  explorer: true,
+  customCss: `
+    .swagger-ui .topbar { display: none }
+    .swagger-ui .info { margin: 20px 0 }
+    .swagger-ui .info .title { color: #3b82f6 }
+  `,
+  customSiteTitle: "Educational Content API Documentation",
+  swaggerOptions: {
+    docExpansion: 'none',
+    filter: true,
+    showRequestDuration: true,
+    tryItOutEnabled: true,
+    requestInterceptor: (req) => {
+      // Add any default headers or modify requests here
+      return req;
+    }
+  }
+}));
 
 // Logging middleware
 app.use((req, res, next) => {
@@ -78,6 +99,11 @@ app.get('/', (req, res) => {
   res.redirect('/ui/login');
 });
 
+// API Documentation redirect
+app.get('/docs', (req, res) => {
+  res.redirect('/api-docs');
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -92,6 +118,8 @@ app.use((req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
+  console.log(`API Documentation available at: http://localhost:${PORT}/api-docs`);
+  console.log(`Dashboard available at: http://localhost:${PORT}/dashboard`);
 });
 
 export default app;
