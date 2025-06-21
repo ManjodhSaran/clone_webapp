@@ -1,5 +1,6 @@
 import router from './v1/routes/index.js';
 
+import dotenv from 'dotenv';
 import express from 'express';
 import path from 'path';
 import cookieParser from 'cookie-parser';
@@ -7,7 +8,7 @@ import session from 'express-session';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import cors from 'cors';
-
+dotenv.config();
 // Import routes
 import { router as authRoutes } from './routes/auth.js';
 import { uiAuthMiddleware } from './routes/middlewares.js';

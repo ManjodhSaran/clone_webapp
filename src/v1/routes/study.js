@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { generateContentFromWord, generateHtmlContentFromWord } from "../controllers/study.js";
+import { generateContentFromWord } from "../controllers/study.js";
+import { generateHtmlContentFromWord } from "../controllers/study2.js";
 
 const router = Router();
 
