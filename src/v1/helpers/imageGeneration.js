@@ -1,27 +1,13 @@
 import axios from 'axios';
-import dotenv from 'dotenv';
+import { config } from '../config/index.js';
 
-dotenv.config();
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-const CLAUDE_API_URL = "https://api.anthropic.com/v1/messages";
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const OPENAI_IMAGE_API_URL = "https://api.openai.com/v1/images/generations";
+import { OpenAI } from 'openai';
 
-const CLAUDE_HEADERS = {
-    "x-api-key": ANTHROPIC_API_KEY,
-    "Content-Type": "application/json",
-    "anthropic-version": "2023-06-01"
-};
-
-const OPENAI_HEADERS = {
-    "Authorization": `Bearer ${OPENAI_API_KEY}`,
-    "Content-Type": "application/json"
-};
 
 // Claude: Generate vivid descriptions
 export const generateImageDescriptionsFromPrompts = async (prompts, maxTokens = 1000) => {
-    if (!ANTHROPIC_API_KEY) throw new Error("Claude API key not configured");
+    if (!config.ai.anthropicApiKey) throw new Error("Claude API key not configured");
 
     const results = [];
 
@@ -38,8 +24,8 @@ export const generateImageDescriptionsFromPrompts = async (prompts, maxTokens = 
         };
 
         try {
-            const response = await axios.post(CLAUDE_API_URL, payload, {
-                headers: CLAUDE_HEADERS
+            const response = await axios.post(config.a, payload, {
+                headers: config.ai.anthropicHeaders
             });
             const description = response.data.content[0].text;
             results.push(description);
@@ -53,7 +39,7 @@ export const generateImageDescriptionsFromPrompts = async (prompts, maxTokens = 
 
 // Claude: Enhance prompts for image models
 export const enhancePromptsForImageGeneration = async (basicPrompts) => {
-    if (!ANTHROPIC_API_KEY) throw new Error("Claude API key not configured");
+    if (!config.ai.anthropicApiKey) throw new Error("Claude API key not configured");
 
     const results = [];
 
@@ -70,8 +56,9 @@ export const enhancePromptsForImageGeneration = async (basicPrompts) => {
         };
 
         try {
-            const response = await axios.post(CLAUDE_API_URL, payload, {
-                headers: CLAUDE_HEADERS
+            const response = await axios.post(config.ai.anthropicApiUrl
+                , payload, {
+                headers: config.ai.anthropicHeaders
             });
             const enhancedPrompt = response.data.content[0].text;
             results.push(enhancedPrompt);
@@ -83,29 +70,84 @@ export const enhancePromptsForImageGeneration = async (basicPrompts) => {
     return results;
 };
 
-// OpenAI: Generate image from enhanced prompt
+
+const openai = new OpenAI({
+    apiKey: config.ai.openaiApiKey
+});
+
+// DALL·E 3 image generation
 export const generateImages = async (prompts, n = 1, size = "1024x1024") => {
-    if (!OPENAI_API_KEY) throw new Error("OpenAI API key not configured");
+    if (!config.ai.openaiApiKey || config.ai.openaiApiKey === 'your-api-key-here') {
+        throw new Error("OpenAI API key not configured!");
+    }
 
     const results = [];
 
     for (const prompt of prompts) {
-        const payload = {
-            prompt,
-            n,
-            size
-        };
-
         try {
-            const response = await axios.post(OPENAI_IMAGE_API_URL, payload, {
-                headers: OPENAI_HEADERS
+            const response = await openai.images.generate({
+                model: "gpt-image-1",
+                prompt,
+
             });
-            const imageUrls = response.data.data.map(img => img.url);
+
+            const imageUrls = response.data.map(img => img.url);
             results.push(...imageUrls);
         } catch (error) {
-            results.push(`Error: ${error.message}`);
+            console.error('Error generating image:', error);
+            results.push(`Error generating image for "${prompt}": ${error.message}`);
         }
     }
 
     return results;
 };
+
+// DALL·E 2 image generation
+export const generateImagesDALLE2 = async (prompts, n = 1, size = "1024x1024") => {
+    if (!config.ai.openaiApiKey || config.ai.openaiApiKey === 'your-api-key-here') {
+        throw new Error("OpenAI API key not configured!");
+    }
+
+    const results = [];
+
+    for (const prompt of prompts) {
+        try {
+            const response = await openai.images.generate({
+                model: "dall-e-2",
+                prompt,
+                n: Math.min(n, 10),
+                size: size === "1024x1024" ? "1024x1024" : "512x512"
+            });
+
+            const imageUrls = response.data.map(img => img.url);
+            results.push(...imageUrls);
+        } catch (error) {
+            console.error('OpenAI DALL-E 2 Error:', error);
+            results.push(`Error generating image for "${prompt}": ${error.message}`);
+        }
+    }
+
+    return results;
+};
+
+
+// test generateImages
+export const testGenerateImages = async () => {
+    try {
+        const prompts = [
+            "A futuristic city skyline at sunset",
+            "A serene forest with a river running through it",
+            "A majestic mountain range with snow-capped peaks"
+        ];
+        const images = await generateImages(prompts);
+        console.log("Generated Images:", images);
+    } catch (error) {
+        console.error("Error in testGenerateImages:", error);
+    }
+};
+
+testGenerateImages().then(() => {
+    console.log("Image generation test completed.");
+}).catch(err => {
+    console.error("Error during image generation test:", err);
+});
