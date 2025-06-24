@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{TITLE}} - Educational Content</title>
+    <title>{{TITLE}} - p Educational Content</title>
     <style>
         * {
             margin: 0;
@@ -61,11 +61,25 @@
             animation: fadeInUp 0.6s ease forwards;
         }
 
-        .card:nth-child(1) { animation-delay: 0.1s; }
-        .card:nth-child(2) { animation-delay: 0.2s; }
-        .card:nth-child(3) { animation-delay: 0.3s; }
-        .card:nth-child(4) { animation-delay: 0.4s; }
-        .card:nth-child(5) { animation-delay: 0.5s; }
+        .card:nth-child(1) {
+            animation-delay: 0.1s;
+        }
+
+        .card:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+
+        .card:nth-child(3) {
+            animation-delay: 0.3s;
+        }
+
+        .card:nth-child(4) {
+            animation-delay: 0.4s;
+        }
+
+        .card:nth-child(5) {
+            animation-delay: 0.5s;
+        }
 
         .card:hover {
             transform: translateY(-5px);
@@ -301,6 +315,7 @@
                 opacity: 0;
                 transform: translateY(30px);
             }
+
             to {
                 opacity: 1;
                 transform: translateY(0);
@@ -308,13 +323,25 @@
         }
 
         @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         @keyframes progressPulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.7; }
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.7;
+            }
         }
 
         @keyframes slideIn {
@@ -322,6 +349,7 @@
                 transform: translateX(100%);
                 opacity: 0;
             }
+
             to {
                 transform: translateX(0);
                 opacity: 1;
@@ -392,11 +420,11 @@
                 this.maxRetries = 10;
                 this.retryDelay = 2000;
                 this.currentRetry = 0;
-                
+
                 this.statusIndicator = document.getElementById('statusIndicator');
                 this.statusText = document.getElementById('statusText');
                 this.imagesGrid = document.getElementById('imagesGrid');
-                
+
                 this.initializePlaceholders();
                 this.startImageLoading();
             }
@@ -470,13 +498,13 @@
                 progressBars.forEach(bar => {
                     bar.style.width = `${progress}%`;
                 });
-                
+
                 this.updateStatus('loading', `Loading images... (${this.currentRetry}/${this.maxRetries})`);
             }
 
             loadImages(images) {
                 const containers = this.imagesGrid.querySelectorAll('.image-container');
-                
+
                 images.forEach((imageUrl, index) => {
                     if (index < containers.length) {
                         this.loadSingleImage(containers[index], imageUrl, index + 1);
@@ -526,7 +554,7 @@
             showError(message) {
                 this.updateStatus('error', message);
                 setTimeout(() => this.hideStatus(), 5000);
-                
+
                 // Show error placeholders for remaining images
                 const containers = this.imagesGrid.querySelectorAll('.image-container');
                 containers.forEach((container, index) => {
@@ -550,12 +578,13 @@
         }
 
         // Initialize progressive loading when page loads
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', function () {
             const sessionId = '{{SESSION_ID}}';
-            const imageCount = {{IMAGE_COUNT}};
-            const word = '{{WORD}}';
-            
-            new ProgressiveImageLoader(sessionId, imageCount, word);
+            const imageCount = {{ IMAGE_COUNT }
+        };
+        const word = '{{WORD}}';
+
+        new ProgressiveImageLoader(sessionId, imageCount, word);
         });
     </script>
 </body>

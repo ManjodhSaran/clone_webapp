@@ -1,8 +1,6 @@
 
 import axios from 'axios';
-import { enhancePromptsForImageGeneration } from '../helpers/imageGeneration.js';
-// import { generateImagesFromPrompts } from '../helpers/imageGeneration.js';
-
+import { enhancePromptsForImageGeneration, generateImages } from '../helpers/imageGeneration.js';
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
@@ -130,7 +128,8 @@ Ensure the JSON is valid and complete.
 
         // Generate images from prompts
         const images = parsedContent.images || [];
-        const imageLinks = await enhancePromptsForImageGeneration(images);
+        const enhancedImages = await enhancePromptsForImageGeneration(images);
+        const imageLinks = await generateImages(enhancedImages);
 
         // Return the response
         const result = {
