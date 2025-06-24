@@ -1,17 +1,13 @@
 {
   "name": "clone_webapp",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "type": "module",
-  "description": "Modern Node.js educational content API",
-  "main": "src/server.js",
+  "description": "A Node.js application ",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "node --watch src/server.js",
-    "build": "echo 'No build step required'",
-    "lint": "echo 'Add ESLint here'",
-    "test": "echo 'Add tests here'"
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
   },
-  "keywords": ["education", "api", "nodejs", "express"],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -31,8 +27,5 @@
     "sanitize-filename": "^1.6.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0"
-  },
-  "engines": {
-    "node": ">=18.0.0"
   }
 }
