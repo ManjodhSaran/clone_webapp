@@ -1,21 +1,14 @@
-import { Router } from "express";
-import { generateContentFromWord } from "../controllers/study.js";
+import { Router } from 'express';
+import { StudyController } from '../../controllers/StudyController.js';
 
 const router = Router();
 
 /**
  * @swagger
- * tags:
- *   name: Educational Content
- *   description: API endpoints for generating educational content
- */
-
-/**
- * @swagger
- * /v1/api/study/generate/{word}:
+ * /api/study/generate/{word}:
  *   get:
- *     summary: Generate educational content for a word/concept (JSON)
- *     description: Creates structured educational content in JSON format for a given word or concept
+ *     summary: Generate educational content for a word/concept
+ *     description: Creates structured educational content for a given word or concept
  *     tags: [Educational Content]
  *     parameters:
  *       - in: path
@@ -24,7 +17,6 @@ const router = Router();
  *         schema:
  *           type: string
  *         description: The word or concept to generate educational content for
- *         example: photosynthesis
  *       - in: query
  *         name: model
  *         schema:
@@ -41,17 +33,9 @@ const router = Router();
  *               $ref: '#/components/schemas/EducationalContent'
  *       400:
  *         description: Invalid model or missing parameters
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiError'
  *       500:
  *         description: Server error or API key not configured
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ApiError'
  */
-router.get("/generate/:word", generateContentFromWord);
+router.get('/generate/:word', StudyController.generateContentFromWord);
 
 export default router;
