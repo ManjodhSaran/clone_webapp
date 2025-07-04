@@ -146,8 +146,8 @@ export const testGenerateImages = async () => {
     }
 };
 
-testGenerateImages().then(() => {
-    console.log("Image generation test completed.");
-}).catch(err => {
-    console.error("Error during image generation test:", err);
-});
+// testGenerateImages().then(() => {
+//     console.log("Image generation test completed.");
+// }).catch(err => {
+//     console.error("Error during image generation test:", err);
+// });

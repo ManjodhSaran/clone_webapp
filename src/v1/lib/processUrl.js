@@ -44,6 +44,65 @@ const createSafeAssetPath = (assetUrl, baseUrl) => {
     }
 };
 
+// Helper function to add MathJax to HTML
+const addMathJaxToHtml = ($, localPath, baseOutputDir) => {
+    // Check if MathJax is already included
+    const existingMathJax = $('script[src*="MathJax"]');
+    if (existingMathJax.length > 0) {
+        console.log('MathJax already present, replacing with local version');
+        existingMathJax.remove();
+    }
+
+    // Calculate relative path to MathJax.js from current HTML file
+    const mathJaxPath = path.join(baseOutputDir, 'latest.js');
+    const relativeMathJaxPath = path.relative(path.dirname(localPath), mathJaxPath);
+
+    // Add MathJax script to head
+    const mathJaxScript = `
+    <script type="text/x-mathjax-config">
+    MathJax.Hub.Config({
+        tex2jax: {
+            inlineMath: [['$','$'], ['\\\\(','\\\\)']],
+            displayMath: [['$$','$$'], ['\\\\[','\\\\]']],
+            processEscapes: true,
+            processEnvironments: true
+        },
+        displayAlign: 'center',
+        "HTML-CSS": {
+            styles: {'.MathJax_Display': {"margin": 0}},
+            linebreaks: { automatic: true }
+        }
+    });
+    </script>
+    <script type="text/javascript" src="${relativeMathJaxPath}"></script>`;
+
+    // Add to head, or create head if it doesn't exist
+    if ($('head').length === 0) {
+        $('html').prepend('<head></head>');
+    }
+    $('head').append(mathJaxScript);
+};
+
+// Helper function to check if page likely contains math content
+const containsMathContent = ($) => {
+    const mathIndicators = [
+        /\$[^$]+\$/g,           // Inline math $...$
+        /\$\$[^$]+\$\$/g,       // Display math $$...$$
+        /\\begin\{[^}]+\}/g,    // LaTeX environments
+        /\\end\{[^}]+\}/g,      // LaTeX environments
+        /\\frac\{[^}]+\}/g,     // LaTeX fractions
+        /\\sum_/g,              // LaTeX summation
+        /\\int_/g,              // LaTeX integration
+        /\\alpha|\\beta|\\gamma|\\delta|\\epsilon|\\theta|\\lambda|\\mu|\\pi|\\sigma|\\phi|\\psi|\\omega/g, // Greek letters
+        /\\mathbf\{[^}]+\}/g,   // Bold math
+        /\\mathit\{[^}]+\}/g,   // Italic math
+        /\\mathrm\{[^}]+\}/g,   // Roman math
+    ];
+
+    const htmlContent = $.html();
+    return mathIndicators.some(pattern => pattern.test(htmlContent));
+};
+
 export const processUrl = async ({ url, depth, localPath, crawlState, baseOutputDir }) => {
     let { processedUrls, pendingUrls, domainCounters, urlToLocalMap, stats: { totalPages, failedPages, totalAssets, }, config } = crawlState
     const urlObj = new URL(url);
@@ -233,6 +292,16 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
                     console.warn('Error processing link:', href, error.message);
                 }
             });
+        }
+
+        // Add MathJax to pages that contain mathematical content
+        // You can modify this condition based on your needs:
+        // - Always add: if (true)
+        // - Only if math detected: if (containsMathContent($))
+        // - Based on URL pattern: if (url.includes('math') || url.includes('equation'))
+        if (containsMathContent($)) {
+            console.log('Math content detected, adding MathJax to:', url);
+            addMathJaxToHtml($, localPath, baseOutputDir);
         }
 
         await fs.writeFile(localPath, $.html());
