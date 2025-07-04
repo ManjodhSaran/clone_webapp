@@ -44,6 +44,20 @@ const createSafeAssetPath = (assetUrl, baseUrl) => {
     }
 };
 
+// Helper function to check if script should be excluded from asset processing
+const shouldExcludeScript = (src) => {
+    if (!src) return false;
+
+    const excludePatterns = [
+        'mathjax',
+        'cdnjs.cloudflare.com/ajax/libs/mathjax',
+        'jsdelivr.net/npm/mathjax',
+        'unpkg.com/mathjax'
+    ];
+
+    return excludePatterns.some(pattern => src.toLowerCase().includes(pattern.toLowerCase()));
+};
+
 export const processUrl = async ({ url, depth, localPath, crawlState, baseOutputDir }) => {
     let { processedUrls, pendingUrls, domainCounters, urlToLocalMap, stats: { totalPages, failedPages, totalAssets, }, config } = crawlState
     const urlObj = new URL(url);
@@ -80,6 +94,50 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
         $('script[src*="facebook"]').remove();
         $('script[src*="twitter"]').remove();
         $('iframe[src*="youtube"]').remove();
+
+        // Fix MathJax script URLs - convert relative to absolute
+        $('script[src*="mathjax"], script[src*="cdnjs.cloudflare.com/ajax/libs/mathjax"]').each((_, el) => {
+            const src = $(el).attr('src');
+            if (src) {
+                // Handle relative paths that should be absolute
+                if (src.includes('cdnjs.cloudflare.com') && !src.startsWith('http')) {
+                    const absoluteUrl = `https://${src.replace(/^\.\.\/+/, '')}`;
+                    $(el).attr('src', absoluteUrl);
+                    console.log(`Fixed MathJax URL: ${src} -> ${absoluteUrl}`);
+                }
+                // Handle other common MathJax CDN patterns
+                else if (src.includes('mathjax') && !src.startsWith('http')) {
+                    // Default to latest stable MathJax if path is unclear
+                    const fallbackUrl = 'https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.9/latest.js';
+                    $(el).attr('src', fallbackUrl);
+                    console.log(`Fixed MathJax URL with fallback: ${src} -> ${fallbackUrl}`);
+                }
+            }
+        });
+
+        // Add MathJax configuration if MathJax is present and no config exists
+        if ($('script[src*="mathjax"]').length > 0 && $('script[type="text/x-mathjax-config"]').length === 0) {
+            const mathJaxConfig = `
+                <script type="text/x-mathjax-config">
+                    MathJax.Hub.Config({
+                        tex2jax: {
+                            inlineMath: [['$','$'], ['\\\\(','\\\\)']],
+                            displayMath: [['$$','$$'], ['\\\\[','\\\\]']],
+                            processEscapes: true,
+                            processEnvironments: true
+                        },
+                        "HTML-CSS": {
+                            availableFonts: ["TeX"],
+                            preferredFont: "TeX",
+                            webFont: "TeX",
+                            imageFont: "TeX"
+                        }
+                    });
+                </script>
+            `;
+            $('head').prepend(mathJaxConfig);
+            console.log('Added MathJax configuration');
+        }
 
         // Remove srcset attribute from all images
         $('img').removeAttr('srcset');
@@ -131,6 +189,13 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
         for (const [selector, attr] of Object.entries(assetTypes)) {
             $(selector).each((_, el) => {
                 const assetUrl = $(el).attr(attr);
+
+                // Skip MathJax and other excluded scripts
+                if (selector === 'script[src]' && shouldExcludeScript(assetUrl)) {
+                    console.log('Skipping excluded script:', assetUrl);
+                    return;
+                }
+
                 console.log('Processing asset:', assetUrl);
 
                 if (assetUrl && !assetUrl.startsWith('data:') && !assetUrl.startsWith('blob:') && !assetUrl.startsWith('#')) {

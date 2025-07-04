@@ -76,7 +76,7 @@ const openai = new OpenAI({
 });
 
 // DALL·E 3 image generation
-export const generateImages = async (prompts, n = 1, size = "1024x1024") => {
+export const generateImages = async (prompts, n = 1, size = "512x512") => {
     if (!config.ai.openaiApiKey || config.ai.openaiApiKey === 'your-api-key-here') {
         throw new Error("OpenAI API key not configured!");
     }
@@ -86,13 +86,12 @@ export const generateImages = async (prompts, n = 1, size = "1024x1024") => {
     for (const prompt of prompts) {
         try {
             const response = await openai.images.generate({
-                model: "gpt-image-1",
+                model: "dall-e-3",
                 prompt,
-
             });
-
-            const imageUrls = response.data.map(img => img.url);
-            results.push(...imageUrls);
+            console.log('response', JSON.stringify(response, null, 2));
+            const imageUrls = response;
+            results.push(imageUrls);
         } catch (error) {
             console.error('Error generating image:', error);
             results.push(`Error generating image for "${prompt}": ${error.message}`);
@@ -112,6 +111,7 @@ export const generateImagesDALLE2 = async (prompts, n = 1, size = "1024x1024") =
 
     for (const prompt of prompts) {
         try {
+            console.log(`Generating image for prompt: "${prompt}" with n=${n} and size=${size}`);
             const response = await openai.images.generate({
                 model: "dall-e-2",
                 prompt,
@@ -136,8 +136,6 @@ export const testGenerateImages = async () => {
     try {
         const prompts = [
             "A futuristic city skyline at sunset",
-            "A serene forest with a river running through it",
-            "A majestic mountain range with snow-capped peaks"
         ];
         const images = await generateImages(prompts);
         console.log("Generated Images:", images);
@@ -145,9 +143,9 @@ export const testGenerateImages = async () => {
         console.error("Error in testGenerateImages:", error);
     }
 };
-
-testGenerateImages().then(() => {
-    console.log("Image generation test completed.");
-}).catch(err => {
-    console.error("Error during image generation test:", err);
-});
+// console.log('here')
+// testGenerateImages().then(() => {
+//     console.log("Image generation test completed.");
+// }).catch(err => {
+//     console.error("Error during image generation test:", err);
+// });

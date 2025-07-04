@@ -91,8 +91,10 @@ Ensure the JSON is valid and complete.
 
         // Generate images from prompts
         const images = parsedContent.images || [];
-        const enhancedImages = await enhancePromptsForImageGeneration(images);
-        const imageLinks = await generateImages(enhancedImages);
+        // const enhancedImages = await enhancePromptsForImageGeneration(images);
+        // console.log('images', JSON.stringify(images, null, 2));
+        // console.log('enhancedImages', JSON.stringify(enhancedImages, null, 2));
+        const imageLinks = await generateImages(images);
 
         // Return the response
         const result = {
