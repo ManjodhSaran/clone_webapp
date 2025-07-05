@@ -44,6 +44,51 @@ const createSafeAssetPath = (assetUrl, baseUrl) => {
     }
 };
 
+// Helper function to process CSS content and download referenced assets
+const processCssContent = async (cssContent, baseUrl, crawlState) => {
+    let modifiedCss = cssContent;
+    const assetPromises = [];
+
+    // Enhanced regex to catch all URL references in CSS
+    const urlRegex = /url\(['"]?([^'")]+)['"]?\)/g;
+    let match;
+
+    while ((match = urlRegex.exec(cssContent)) !== null) {
+        const assetUrl = match[1];
+
+        // Skip data URLs and hash fragments
+        if (assetUrl.startsWith('data:') || assetUrl.startsWith('#')) continue;
+
+        try {
+            const safeAssetInfo = createSafeAssetPath(assetUrl, baseUrl);
+
+            if (safeAssetInfo) {
+                const promise = processAsset({
+                    assetUrl: safeAssetInfo.fullUrl,
+                    url: baseUrl,
+                    crawlState
+                }).then(info => {
+                    if (info) {
+                        // Create relative path from CSS file location to asset
+                        const relativePath = path.relative(path.dirname(info.cssPath || ''), info.path);
+                        modifiedCss = modifiedCss.replace(match[0], `url(${relativePath})`);
+                        crawlState.stats.totalAssets++;
+                    }
+                }).catch(error => {
+                    console.error('Failed to process CSS asset:', safeAssetInfo.fullUrl, error.message);
+                });
+
+                assetPromises.push(promise);
+            }
+        } catch (error) {
+            console.warn('Error processing CSS URL:', assetUrl, error.message);
+        }
+    }
+
+    await Promise.all(assetPromises);
+    return modifiedCss;
+};
+
 // Helper function to add MathJax to HTML
 const addMathJaxToHtml = ($, localPath, baseOutputDir) => {
     // Check if MathJax is already included
@@ -150,6 +195,7 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
             try { baseUrl = new URL(baseTag.attr('href'), url).toString(); } catch { }
         }
 
+        // Enhanced asset types including fonts
         const assetTypes = {
             'img[src]': 'src',
             'link[rel="stylesheet"]': 'href',
@@ -166,6 +212,11 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
             'link[rel="mask-icon"]': 'href',
             'link[rel="manifest"]': 'href',
             'link[rel="apple-touch-icon"]': 'href',
+            // Add font-specific selectors
+            'link[rel="preload"][as="font"][type="font/woff2"]': 'href',
+            'link[rel="preload"][as="font"][type="font/woff"]': 'href',
+            'link[rel="preload"][as="font"][type="font/ttf"]': 'href',
+            'link[rel="preload"][as="font"][type="font/otf"]': 'href',
         };
 
         const assetPromises = [];
@@ -190,24 +241,34 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
         for (const [selector, attr] of Object.entries(assetTypes)) {
             $(selector).each((_, el) => {
                 const assetUrl = $(el).attr(attr);
-                console.log('Processing asset:', assetUrl);
 
                 if (assetUrl && !assetUrl.startsWith('data:') && !assetUrl.startsWith('blob:') && !assetUrl.startsWith('#')) {
                     const safeAssetInfo = createSafeAssetPath(assetUrl, baseUrl);
 
                     if (safeAssetInfo) {
-                        console.log('Safe asset URL:', safeAssetInfo.fullUrl);
-                        console.log('Safe filename:', safeAssetInfo.filename);
+                        console.log('Processing asset:', safeAssetInfo.fullUrl);
 
                         const promise = processAsset({
                             assetUrl: safeAssetInfo.fullUrl,
                             url,
                             crawlState
-                        }).then(info => {
+                        }).then(async (info) => {
                             if (info) {
                                 const relative = path.relative(path.dirname(localPath), info.path);
                                 $(el).attr(attr, relative);
                                 crawlState.stats.totalAssets++;
+
+                                // Special handling for CSS files (including FontAwesome)
+                                if (info.path.endsWith('.css')) {
+                                    try {
+                                        const cssContent = await fs.readFile(info.path, 'utf8');
+                                        const modifiedCss = await processCssContent(cssContent, safeAssetInfo.fullUrl, crawlState);
+                                        await fs.writeFile(info.path, modifiedCss);
+                                        console.log('Processed CSS file and its assets:', info.path);
+                                    } catch (error) {
+                                        console.error('Error processing CSS file:', info.path, error.message);
+                                    }
+                                }
                             }
                         }).catch(error => {
                             console.error('Failed to process asset:', safeAssetInfo.fullUrl, error.message);
@@ -221,43 +282,32 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
             });
         }
 
-        // Process CSS with enhanced filename validation
+        // Process inline CSS styles with enhanced handling
         $('style').each((_, el) => {
             const css = $(el).html();
             if (!css) return;
 
-            let modified = css;
-            const regex = /url\(['"]?([^'")]+)['"]?\)/g;
-            const cssPromises = [];
-            let match;
+            const cssPromise = processCssContent(css, baseUrl, crawlState).then(modifiedCss => {
+                $(el).html(modifiedCss);
+            }).catch(error => {
+                console.error('Error processing inline CSS:', error.message);
+            });
 
-            while ((match = regex.exec(css)) !== null) {
-                const cssUrl = match[1];
-                if (cssUrl.startsWith('data:') || cssUrl.startsWith('#')) continue;
+            assetPromises.push(cssPromise);
+        });
 
-                const safeAssetInfo = createSafeAssetPath(cssUrl, baseUrl);
+        // Also check for style attributes on individual elements
+        $('[style]').each((_, el) => {
+            const style = $(el).attr('style');
+            if (!style) return;
 
-                if (safeAssetInfo) {
-                    const promise = processAsset({
-                        assetUrl: safeAssetInfo.fullUrl,
-                        url,
-                        crawlState
-                    }).then(info => {
-                        if (info) {
-                            const relative = path.relative(path.dirname(localPath), info.path);
-                            modified = modified.replace(match[0], `url(${relative})`);
-                            crawlState.stats.totalAssets++;
-                        }
-                    }).catch(error => {
-                        console.error('Failed to process CSS asset:', safeAssetInfo.fullUrl, error.message);
-                    });
+            const stylePromise = processCssContent(style, baseUrl, crawlState).then(modifiedStyle => {
+                $(el).attr('style', modifiedStyle);
+            }).catch(error => {
+                console.error('Error processing inline style:', error.message);
+            });
 
-                    cssPromises.push(promise);
-                }
-            }
-
-            assetPromises.push(...cssPromises);
-            Promise.all(cssPromises).then(() => $(el).html(modified));
+            assetPromises.push(stylePromise);
         });
 
         await Promise.all(assetPromises);
@@ -295,10 +345,6 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
         }
 
         // Add MathJax to pages that contain mathematical content
-        // You can modify this condition based on your needs:
-        // - Always add: if (true)
-        // - Only if math detected: if (containsMathContent($))
-        // - Based on URL pattern: if (url.includes('math') || url.includes('equation'))
         if (containsMathContent($)) {
             console.log('Math content detected, adding MathJax to:', url);
             addMathJaxToHtml($, localPath, baseOutputDir);
