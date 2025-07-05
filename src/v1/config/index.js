@@ -11,7 +11,10 @@ export const config = {
         baseUrl: process.env.API_BASE_URL || 'https://iblib.com/api',
         timeout: parseInt(process.env.API_TIMEOUT) || 30000
     },
-
+    google: {
+        apiKey: process.env.GOOGLE_API_KEY,
+        searchEngineId: process.env.SEARCH_ENGINE_ID
+    },
     ai: {
         anthropicApiKey: process.env.ANTHROPIC_API_KEY,
         openaiApiKey: process.env.OPENAI_API_KEY,
