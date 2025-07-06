@@ -54,143 +54,6 @@ const createSafeAssetPath = (assetUrl, baseUrl) => {
 };
 
 /**
- * Helper function to copy local MathJax to output directory
- */
-const copyLocalMathJax = async (baseOutputDir, crawlState) => {
-    const mathJaxDir = path.join(baseOutputDir, 'mathjax');
-    const mathJaxMainFile = path.join(mathJaxDir, 'MathJax.js');
-
-    try {
-        // Create MathJax directory
-        await fs.mkdir(mathJaxDir, { recursive: true });
-
-        // Path to your local MathJax.js file relative to this module
-        const localMathJaxPath = path.resolve(__dirname, 'MathJax.js');
-
-        console.log('Copying local MathJax library from:', localMathJaxPath);
-
-        // Check if local MathJax.js exists
-        try {
-            await fs.access(localMathJaxPath);
-        } catch (error) {
-            console.error('Local MathJax.js file not found at:', localMathJaxPath);
-            console.error('Please ensure MathJax.js is in the same directory as this module file');
-            return null;
-        }
-
-        // Read the local MathJax content
-        let mathJaxContent = await fs.readFile(localMathJaxPath, 'utf8');
-
-        // Process the MathJax content to make internal references local
-        mathJaxContent = await processMathJaxContent(mathJaxContent, mathJaxDir, crawlState);
-
-        // Save the main MathJax file
-        await fs.writeFile(mathJaxMainFile, mathJaxContent);
-        console.log('Copied and processed local MathJax.js to:', mathJaxMainFile);
-
-        crawlState.stats.totalAssets++;
-
-        return mathJaxMainFile;
-
-    } catch (error) {
-        console.error('Error copying local MathJax:', error.message);
-        return null;
-    }
-};
-
-/**
- * Helper function to process MathJax content and make internal links local
- */
-const processMathJaxContent = async (content, mathJaxDir, crawlState) => {
-    // Replace CDN URLs with local paths
-    let processedContent = content;
-
-    // Common MathJax CDN patterns
-    const cdnPatterns = [
-        /https?:\/\/cdnjs\.cloudflare\.com\/ajax\/libs\/mathjax\/[^\/]+\//g,
-        /https?:\/\/cdn\.mathjax\.org\/mathjax\/[^\/]+\//g,
-        /https?:\/\/cdn\.jsdelivr\.net\/mathjax\/[^\/]+\//g,
-        /https?:\/\/cdn\.rawgit\.com\/mathjax\/MathJax\/[^\/]+\//g
-    ];
-
-    // Replace all CDN patterns with local relative paths
-    cdnPatterns.forEach(pattern => {
-        processedContent = processedContent.replace(pattern, './');
-    });
-
-    // Handle dynamic script loading in MathJax
-    processedContent = processedContent.replace(
-        /document\.createElement\s*\(\s*["']script["']\s*\)/g,
-        'document.createElement("script")'
-    );
-
-    // Replace any remaining absolute URLs that might point to MathJax resources
-    processedContent = processedContent.replace(
-        /["']https?:\/\/[^"']*mathjax[^"']*["']/gi,
-        (match) => {
-            const url = match.slice(1, -1); // Remove quotes
-            try {
-                const urlObj = new URL(url);
-                const pathname = urlObj.pathname;
-                const localPath = pathname.replace(/^\/.*?\/mathjax\/[^\/]+\//, './');
-                return `"${localPath}"`;
-            } catch {
-                return match;
-            }
-        }
-    );
-
-    return processedContent;
-};
-
-/**
- * Helper function to create a local MathJax loader
- */
-const createLocalMathJaxLoader = async (baseOutputDir) => {
-    const loaderContent = `
-/*
- * Local MathJax Loader
- * This loads the local MathJax.js file
- */
-(function() {
-    function loadMathJax() {
-        var script = document.createElement('script');
-        script.type = 'text/javascript';
-        script.async = true;
-        script.src = './mathjax/MathJax.js?config=TeX-AMS-MML_HTMLorMML';
-        
-        script.onload = function() {
-            console.log('MathJax loaded successfully');
-        };
-        
-        script.onerror = function() {
-            console.error('Failed to load MathJax');
-        };
-        
-        var head = document.head || document.getElementsByTagName('head')[0] || document.body;
-        if (head) {
-            head.appendChild(script);
-        } else {
-            console.error("Can't find the document <head> element");
-        }
-    }
-    
-    // Load MathJax when DOM is ready
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', loadMathJax);
-    } else {
-        loadMathJax();
-    }
-})();
-`;
-
-    const loaderPath = path.join(baseOutputDir, 'mathjax-loader.js');
-    await fs.writeFile(loaderPath, loaderContent);
-    console.log('Created MathJax loader at:', loaderPath);
-    return loaderPath;
-};
-
-/**
  * Helper function to process CSS content and download referenced assets
  */
 const processCssContent = async (cssContent, baseUrl, crawlState) => {
@@ -238,53 +101,18 @@ const processCssContent = async (cssContent, baseUrl, crawlState) => {
 };
 
 /**
- * Enhanced MathJax integration function
+ * Simple MathJax integration function
  */
-const addMathJaxToHtml = async ($, localPath, baseOutputDir, crawlState) => {
+const addMathJaxToHtml = ($) => {
     // Check if MathJax is already included
     const existingMathJax = $('script[src*="MathJax"], script[src*="mathjax"]');
     if (existingMathJax.length > 0) {
-        console.log('MathJax already present, replacing with local version');
+        console.log('MathJax already present, replacing with CDN version');
         existingMathJax.remove();
     }
 
-    // Ensure local MathJax is copied to output directory
-    const mathJaxFile = await copyLocalMathJax(baseOutputDir, crawlState);
-    if (!mathJaxFile) {
-        console.error('Failed to copy MathJax file, skipping MathJax integration');
-        return;
-    }
-
-    // Create local loader
-    const loaderPath = await createLocalMathJaxLoader(baseOutputDir);
-
-    // Calculate relative path to local MathJax loader from current HTML file
-    const relativeLoaderPath = path.relative(path.dirname(localPath), loaderPath);
-
-    // Add MathJax configuration and loader to head
-    const mathJaxScript = `
-    <script type="text/x-mathjax-config">
-    MathJax.Hub.Config({
-        tex2jax: {
-            inlineMath: [['$','$'], ['\\\\(','\\\\)']],
-            displayMath: [['$$','$$'], ['\\\\[','\\\\]']],
-            processEscapes: true,
-            processEnvironments: true,
-            skipTags: ['script', 'noscript', 'style', 'textarea', 'pre']
-        },
-        displayAlign: 'center',
-        displayIndent: '0em',
-        "HTML-CSS": {
-            styles: {'.MathJax_Display': {"margin": 0}},
-            linebreaks: { automatic: true },
-            scale: 100
-        },
-        showMathMenu: false,
-        showProcessingMessages: false,
-        messageStyle: 'none'
-    });
-    </script>
-    <script type="text/javascript" src="${relativeLoaderPath}"></script>`;
+    // Add MathJax script tag to head
+    const mathJaxScript = '<script src="../../../../../../MathJax-2.6-latest/MathJax.js?config=TeX-MML-AM_CHTML"></script>';
 
     // Add to head, or create head if it doesn't exist
     if ($('head').length === 0) {
@@ -584,7 +412,7 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
         // Add MathJax to pages that contain mathematical content
         if (containsMathContent($)) {
             console.log('Math content detected, adding MathJax to:', url);
-            await addMathJaxToHtml($, localPath, baseOutputDir, crawlState);
+            addMathJaxToHtml($);
         }
 
         // Save processed HTML
