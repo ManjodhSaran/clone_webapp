@@ -237,11 +237,6 @@ export const generateContentFromWord = async (req, res) => {
             });
         }
 
-        // Test Google API configuration
-        const googleAPIWorking = await testGoogleAPI();
-        if (!googleAPIWorking) {
-            console.warn('Google API test failed, but continuing...');
-        }
 
         // Validate model
         if (!config.ai_models.allowed.includes(model)) {
@@ -347,26 +342,26 @@ Return ONLY the JSON object.`;
             });
         }
 
-        const imageSearchPromises = imageSearchQueries.map(query =>
-            searchGoogleImages(query, 3).catch(error => {
-                console.error(`Failed to search for "${query}":`, error.message);
-                return [];
-            })
-        );
+        // const imageSearchPromises = imageSearchQueries.map(query =>
+        //     searchGoogleImages(query, 3).catch(error => {
+        //         console.error(`Failed to search for "${query}":`, error.message);
+        //         return [];
+        //     })
+        // );
 
-        const imageResults = await Promise.all(imageSearchPromises);
+        // const imageResults = await Promise.all(imageSearchPromises);
 
         // Process images
-        const allImages = imageResults.flat().filter(img => img.url);
+        // const allImages = imageResults.flat().filter(img => img.url);
         const uniqueImages = [];
-        const seenUrls = new Set();
+        // const seenUrls = new Set();
 
-        for (const img of allImages) {
-            if (!seenUrls.has(img.url) && uniqueImages.length < 8) {
-                seenUrls.add(img.url);
-                uniqueImages.push(img);
-            }
-        }
+        // for (const img of allImages) {
+        //     if (!seenUrls.has(img.url) && uniqueImages.length < 8) {
+        //         seenUrls.add(img.url);
+        //         uniqueImages.push(img);
+        //     }
+        // }
 
         // Fallback search if no images found
         if (uniqueImages.length === 0) {
