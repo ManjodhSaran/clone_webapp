@@ -112,7 +112,7 @@ const addMathJaxToHtml = ($) => {
     }
 
     // Add MathJax script tag to head
-    const mathJaxScript = '<script src="../../../../../../MathJax-2.6-latest/MathJax.js?config=TeX-MML-AM_CHTML"></script>';
+    const mathJaxScript = '<script src="../../../../../../../../MathJax/MathJax.js?config=TeX-MML-AM_CHTML"></script>';
 
     // Add to head, or create head if it doesn't exist
     if ($('head').length === 0) {
