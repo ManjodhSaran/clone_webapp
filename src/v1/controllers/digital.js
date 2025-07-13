@@ -1,6 +1,8 @@
 import fs from 'fs'
 import path from 'path'
 import { pdfToPng } from 'pdf-to-png-converter'
+import { extractImagesFromImage, extractImagesFromImageSharp } from '../helpers/digital/digitalPdf.js';
+import { imageToHtml, processAllImages, saveHtmlToFile } from '../helpers/digital/imageToHtml.js';
 
 const convertPdfToImages = async (pdfPath, outputDir) => {
     try {
@@ -34,6 +36,7 @@ const convertPdfToImages = async (pdfPath, outputDir) => {
     }
 };
 
+
 export const digitizePdf = async (req, res) => {
     let pdfOutputDir = null;
 
@@ -48,8 +51,27 @@ export const digitizePdf = async (req, res) => {
         const tempDir = path.join(process.cwd(), 'temp');
         pdfOutputDir = path.join(tempDir, sessionId);
 
-        // Convert PDF to images - this will create temp/sessionId/images/1.png, 2.png, etc.
         const imageFiles = await convertPdfToImages(req.file.path, pdfOutputDir);
+
+        imageFiles.forEach(async (image) => {
+            // extractImagesFromImage(image)
+            // Smart detection (recommended)
+            const result = await extractImagesFromImage(image);
+            console.log('result', JSON.stringify(result, null, 2));
+            // Simple grid (most reliable)
+            // const result2 = await extractImagesFromImageSharp(image);
+            // console.log('result2', JSON.stringify(result2, null, 2));
+        })
+
+
+
+        const htmlContent = await processAllImages(imageFiles);
+
+        const outputDir = `${pdfOutputDir}/html`;
+        for (const htmlResult of htmlContent) {
+            await saveHtmlToFile(htmlResult, outputDir);
+        }
+
 
         res.status(200).json({
             success: true,
@@ -63,7 +85,6 @@ export const digitizePdf = async (req, res) => {
     } catch (error) {
         console.error('Error in digitizePdf:', error);
 
-        // Clean up the entire session directory on error
         if (pdfOutputDir && fs.existsSync(pdfOutputDir)) {
             try {
                 fs.rmSync(pdfOutputDir, { recursive: true, force: true });
@@ -76,14 +97,5 @@ export const digitizePdf = async (req, res) => {
             error: 'Failed to convert PDF to images',
             details: error.message
         });
-    } finally {
-        // Optional: Clean up the original PDF file if needed
-        // if (req.file && req.file.path && fs.existsSync(req.file.path)) {
-        //     try {
-        //         fs.unlinkSync(req.file.path);
-        //     } catch (cleanupError) {
-        //         console.error('Error cleaning up uploaded file:', cleanupError);
-        //     }
-        // }
     }
 };
