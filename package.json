@@ -11,6 +11,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "adm-zip": "^0.5.10",
     "axios": "^1.10.0",
     "body-parser": "^2.2.0",
@@ -23,11 +24,15 @@
     "express-session": "^1.18.1",
     "form-data": "^4.0.2",
     "mime-types": "^2.1.35",
+    "multer": "^2.0.1",
     "openai": "^5.7.0",
     "p-queue": "^8.1.0",
+    "pdf-poppler": "^0.2.1",
+    "pdf-to-png-converter": "^3.7.0",
+    "pdf2pic": "^3.2.0",
     "sanitize-filename": "^1.6.3",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0",
-    "@google/generative-ai": "^0.24.1"
+    "uuid": "^11.1.0"
   }
 }
