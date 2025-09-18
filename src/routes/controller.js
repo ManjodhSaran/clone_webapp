@@ -270,10 +270,11 @@ export const SubjectController = {
                 {
                     headers: {
                         Authorization: `${req.token}`
-                    }
+                    },
+                    params: req.query
                 }
             );
-            console.log('response', JSON.stringify(response.data, null, 2));
+
             const courseData = response.data;
             if (!courseData) {
                 return res.status(404).json({
@@ -290,16 +291,18 @@ export const SubjectController = {
         }
     },
     getYears: async (req, res) => {
+
         try {
             const response = await axios.get(
                 API_ENDPOINTS.getYears,
                 {
                     headers: {
                         Authorization: `${req.token}`
-                    }
-                }
+                    },
+                    params: req.query
+                },
             );
-            console.log('response', JSON.stringify(response.data, null, 2));
+
             const courseData = response.data;
             if (!courseData) {
                 return res.status(404).json({
@@ -353,7 +356,7 @@ export const SubjectController = {
         try {
             const { curr, currYear, subject } = req.query;
             const payload = { curr, currYear, subject };
-            console.log('payload', payload)
+
             const response = await axios.post(
                 API_ENDPOINTS.subjectOfflineFile,
                 payload,
@@ -388,8 +391,6 @@ export const SubjectController = {
         try {
             const { curr, currYear, subject } = req.query;
             const payload = { curr, currYear, subject };
-            console.log('payload', payload)
-            console.log('req.token', req.token)
 
             const response = await axios.post(
                 API_ENDPOINTS.subjectOfflineStatus,
