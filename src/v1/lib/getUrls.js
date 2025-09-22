@@ -79,7 +79,6 @@ export const getSubjectsFromRequest = async ({ token, curr, currYear }) => {
 
 export const getUrlsFromRequest = async ({ token, payload, }) => {
     try {
-
         const response = await fetch(chapters_base_url, {
             method: 'POST',
             headers: {
@@ -88,7 +87,6 @@ export const getUrlsFromRequest = async ({ token, payload, }) => {
             },
             body: JSON.stringify(payload)
         });
-
 
         if (!response.ok) {
             throw new Error('Failed to fetch data');
@@ -99,9 +97,8 @@ export const getUrlsFromRequest = async ({ token, payload, }) => {
         const urls = [];
         const sitemap = data.map(topic => ({
             ...topic,
-            subtopics: topic.subtopics.map(subtopic => ({
-                ...subtopic,
-                chapters: subtopic.chapters.map(chapter => {
+            subtopics: topic.subtopics.map((subtopic, i) => {
+                const chapters = subtopic.chapters.map(chapter => {
                     const full_url = `${html_base_url}${chapter.tid}`;
                     urls.push(full_url);
                     return {
@@ -109,8 +106,13 @@ export const getUrlsFromRequest = async ({ token, payload, }) => {
                         live_url: full_url,
                         local_url: `./www.iblib.com/user/html/topic/${chapter.tid}/index.html`
                     };
-                })
-            }))
+                });
+                return {
+                    ...subtopic,
+                    title: subtopic?.title || chapters[0]?.title || 'Untitled',
+                    chapters,
+                }
+            })
         }));
 
         return {
