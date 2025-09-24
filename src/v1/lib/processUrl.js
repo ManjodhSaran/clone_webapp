@@ -350,6 +350,12 @@ const updateAbsoluteUrls = ($, baseUrl, localPath, crawlState) => {
  */
 export const processUrl = async ({ url, depth, localPath, crawlState, baseOutputDir }) => {
     const { domainCounters, stats: { totalPages }, config } = crawlState;
+
+    if (url.includes('select?TID')) {
+        const topic = url.split('select?TID=')[1].split('&ActionType')[0];
+        localPath = localPath.replace('select/index.html', `select/${topic}/questions.html`);
+    }
+
     const urlObj = new URL(url);
     const domain = urlObj.hostname;
 
@@ -367,7 +373,7 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
         await fs.mkdir(path.dirname(localPath), { recursive: true });
         const response = await axios.get(url, {
             timeout: config.timeout,
-            headers: { 'User-Agent': config.userAgent }
+            headers: { 'User-Agent': config.userAgent, ...(config.assetAuthHeaders || {}) }
         });
 
         const contentType = response.headers['content-type'] || '';

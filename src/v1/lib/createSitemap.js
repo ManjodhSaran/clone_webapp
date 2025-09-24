@@ -560,6 +560,23 @@ export const createSitemap = async ({ outputPath, processedUrls, sitemap }) => {
         border-top-color: var(--primary-color);
         animation: spin 1s ease-in-out infinite;
       }
+        .chapter-questions {
+  margin-top: 4px;
+}
+
+.questions-link {
+  color: #6200ee;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.questions-link:hover {
+  text-decoration: none;
+  color: #4e3d42; /* optional hover color */
+}
+
       
       @keyframes spin {
         to { transform: rotate(360deg); }
@@ -788,54 +805,76 @@ function generateTopicCards(sitemap) {
   if (!sitemap || !Array.isArray(sitemap) || sitemap.length === 0) {
     return '<div class="no-results">No topics found in sitemap</div>';
   }
-
   return sitemap.map(topic => {
     return `
-      <div class="topic-card">
-        <div class="topic-header">
-          <h2>${escapeHtml(topic.title)}</h2>
-          <div class="topic-description">${topic.description ? escapeHtml(topic.description) : 'Study materials and resources'}</div>
-          <span class="completion-badge">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-              <polyline points="22 4 12 14.01 9 11.01"></polyline>
-            </svg>
-            ${topic.completion}% complete
-          </span>
-          <div class="completion-progress" data-percent="${topic.completion}" style="width: ${topic.completion}%"></div>
+    <div class="topic-card">
+      <div class="topic-header">
+        <h2 class="topic-title">${escapeHtml(topic.title || 'Untitled Topic')}</h2>
+        <div class="topic-description">
+          ${topic.description ? escapeHtml(topic.description) : 'Study materials and resources'}
         </div>
-        
-        <div class="topic-content">
-          ${topic.subtopics.map(subtopic => `
-            <div class="subtopic">
-              <div class="subtopic-header">
-                <h3 class="subtopic-title">
-                  <svg class="subtopic-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
-                    <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
-                  </svg>
-                  ${escapeHtml(subtopic.title)}
-                </h3>
-                <svg class="chevron-icon" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M6 9l6 6 6-6"/>
-                </svg></div>
-              <ul class="chapters">
-                ${subtopic.chapters.map(chapter => `
-                  <li class="chapter-item">
-                    <a href="${chapter.local_url}" class="chapter-link">
-                      <span class="status-indicator status-${chapter.status}"></span>
-                      ${escapeHtml(chapter.title)}
-                    </a>
-                    <span class="status-label label-${chapter.status}">${chapter.status}</span>
-                  </li>
-                `).join('')}
-              </ul>
-            </div>
-          `).join('')}
+        <span class="completion-badge">
+          <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          ${topic.completion != null ? topic.completion : 0}% complete
+        </span>
+        <div class="completion-progress" 
+             data-percent="${topic.completion || 0}" 
+             style="width: ${(topic.completion || 0)}%">
         </div>
       </div>
-    `;
+      
+      <div class="topic-content">
+        ${(topic.subtopics || []).map(subtopic => `
+          <div class="subtopic">
+            <div class="subtopic-header">
+              <h3 class="subtopic-title" title="${escapeHtml(subtopic.title || '')}">
+                ${escapeHtml(subtopic.title || 'Untitled Subtopic')}
+              </h3>
+            </div>
+           <ul style="list-style: none; margin: 0; padding: 0;">
+    ${(subtopic.chapters || []).map(chapter => `
+        <li style="padding: 12px 0; border-bottom: 1px solid #eee;">
+            <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+                <span style="width: 8px; height: 8px; background: #007acc; border-radius: 50%;"></span>
+                <a href="${chapter.local_url || '#'}" style="color: #333; text-decoration: none; flex: 1;">
+                    ${escapeHtml(chapter.title || 'Untitled Chapter')}
+                </a>
+                <span style="color: #666; font-size: 12px;">${chapter.status || 'N/A'}</span>
+            </div>
+            ${chapter.local_question_url ? `
+                <div style="margin-left: 18px;">
+                    <a href="${chapter.local_question_url}" style="
+                        display: inline-flex; 
+                        align-items: center; 
+                        gap: 4px; 
+                        padding: 4px 8px; 
+                        background: #f5f5f5; 
+                        color: #666; 
+                        text-decoration: none; 
+                        font-size: 11px; 
+                        border-radius: 4px;
+                        border: 1px solid #ddd;
+                    ">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+                        </svg>
+                        Questions
+                    </a>
+                </div>
+            ` : ''}
+        </li>
+    `).join('')}
+</ul>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
   }).join('');
+
 }
 
 function escapeHtml(text) {

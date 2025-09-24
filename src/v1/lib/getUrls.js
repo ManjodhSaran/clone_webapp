@@ -95,16 +95,21 @@ export const getUrlsFromRequest = async ({ token, payload, }) => {
         const data = await response.json();
 
         const urls = [];
-        const sitemap = data.map(topic => ({
+        const questions_urls = [];
+        const sitemap = data.map((topic, index) => ({
             ...topic,
             subtopics: topic.subtopics.map((subtopic, i) => {
                 const chapters = subtopic.chapters.map(chapter => {
                     const full_url = `${html_base_url}${chapter.tid}`;
+                    const question_url = `https://iblib.com/user/html/topic/select?TID=${chapter.tid}&ActionType=ActionTypePreview`;
                     urls.push(full_url);
+                    questions_urls.push(question_url);
                     return {
                         ...chapter,
                         live_url: full_url,
-                        local_url: `./www.iblib.com/user/html/topic/${chapter.tid}/index.html`
+                        local_url: `./www.iblib.com/user/html/topic/${chapter.tid}/index.html`,
+                        local_url_question: question_url,
+                        local_question_url: `./iblib.com/user/html/topic/select/${chapter.tid}/questions.html`,
                     };
                 });
                 return {
@@ -115,10 +120,7 @@ export const getUrlsFromRequest = async ({ token, payload, }) => {
             })
         }));
 
-        return {
-            urls,
-            sitemap
-        };
+        return { urls: [...urls, ...questions_urls], sitemap };
 
     } catch (error) {
         console.error("Error:", error);
