@@ -99,6 +99,13 @@ export const archiverWeb = async (req, res) => {
             console.log(`Uploading ${name}...`);
             await uploadToServer({ name, token });
 
+            if (fsSync.existsSync('results')) {
+                await fsSync.promises.rm('results', { recursive: true, force: true });
+            }
+            if (fsSync.existsSync('downloads')) {
+                await fsSync.promises.rm('downloads', { recursive: true, force: true });
+            }
+
             return res.status(200).json({
                 message: 'Download completed',
                 details: `Subject ${subject} has been downloaded and uploaded successfully.`,
