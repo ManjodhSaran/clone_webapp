@@ -101,7 +101,7 @@ export const getUrlsFromRequest = async ({ token, payload, }) => {
             subtopics: topic.subtopics.map((subtopic, i) => {
                 const chapters = subtopic.chapters.map(chapter => {
                     const full_url = `${html_base_url}${chapter.tid}`;
-                    const question_url = `https://iblib.com/user/html/topic/select?TID=${chapter.tid}&ActionType=ActionTypePreview`;
+                    const question_url = `https://iblib.com/user/html/topic/select?TID=${chapter.tid}&ActionType=ActionTypePreview&ShowQuestionsAll=1`;
                     urls.push(full_url);
                     questions_urls.push(question_url);
                     return {
