@@ -174,7 +174,8 @@ const getChapters = async ({ name, payload, token }) => {
 
         const _path = `results/${name}`;
         const outputPath = path.join(process.cwd(), _path);
-        await getLocalVersion({ urls, outputPath, sitemap, token });
+        const redundantPath = path.join(process.cwd(), 'results', name, 'iblib.com', 'iblib.com');
+        await getLocalVersion({ urls, outputPath, sitemap, token, redundantPath });
 
         const { fileName, buffer } = await createZipArchive(outputPath);
 

@@ -3,6 +3,7 @@ import fs from 'fs/promises';
 import pQueue from 'p-queue';
 import { finalizeArchive } from "./finalizeArchive.js";
 import { logResults } from "../utils/log.util.js";
+import fsSync from 'fs';
 
 const getAuthHeaders = (token) => ({
     'Authorization': token,
@@ -41,7 +42,7 @@ const initializeCrawlState = (config, outputPath) => ({
 });
 
 
-export const getLocalVersion = async ({ urls, outputPath, sitemap, token }) => {
+export const getLocalVersion = async ({ urls, outputPath, sitemap, token, redundantPath }) => {
     await fs.mkdir(outputPath, { recursive: true });
     const options = {
         maxDepth: 2,
@@ -58,6 +59,23 @@ export const getLocalVersion = async ({ urls, outputPath, sitemap, token }) => {
                 crawlState
             });
         }
+
+        // remove results/${name}/iblib.com/iblib.com
+        if (fsSync.existsSync(redundantPath)) {
+
+            await fsSync.promises.rm(redundantPath, { recursive: true, force: true }).then(() => {
+                console.log("Redundant path removed:", redundantPath);
+            }).catch((err) => {
+                console.error("Error removing redundant path:", err);
+            });
+
+
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+
+
         const result = await finalizeArchive({ crawlState, sitemap });
         logResults(result);
 
