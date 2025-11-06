@@ -103,7 +103,7 @@ const processCssContent = async (cssContent, baseUrl, crawlState) => {
 /**
  * Simple MathJax integration function
  */
-const addMathJaxToHtml = ($) => {
+const addMathJaxToHtml = ($, addOneMore) => {
     // Check if MathJax is already included
     const existingMathJax = $('script[src*="MathJax"], script[src*="mathjax"]');
     if (existingMathJax.length > 0) {
@@ -112,7 +112,7 @@ const addMathJaxToHtml = ($) => {
     }
 
     // Add MathJax script tag to head
-    const mathJaxScript = '<script src="../../../../../../../../MathJax/MathJax.js?config=TeX-MML-AM_CHTML"></script>';
+    const mathJaxScript = addOneMore ? '<script src="../../../../../../../../../MathJax/MathJax.js?config=TeX-MML-AM_CHTML"></script>' : '<script src="../../../../../../../../MathJax/MathJax.js?config=TeX-MML-AM_CHTML"></script>';
 
     // Add to head, or create head if it doesn't exist
     if ($('head').length === 0) {
@@ -418,7 +418,7 @@ export const processUrl = async ({ url, depth, localPath, crawlState, baseOutput
         // Add MathJax to pages that contain mathematical content
         if (containsMathContent($)) {
             console.log('Math content detected, adding MathJax to:', url);
-            addMathJaxToHtml($);
+            addMathJaxToHtml($, url.includes('select?TID'));
         }
 
         // Save processed HTML
